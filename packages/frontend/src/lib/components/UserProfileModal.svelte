@@ -95,6 +95,29 @@
     <form onsubmit={handleSaveProfile} class="space-y-3.5">
       <h3 class="text-xs font-bold text-[#54656f] dark:text-[#8696a0] uppercase tracking-wider">Detail Profil</h3>
 
+      <!-- Avatar Live Preview -->
+      <div class="flex items-center gap-3.5 p-3 bg-[#f0f2f5] dark:bg-[#202c33] rounded-2xl border border-black/5 dark:border-white/5">
+        {#if avatarUrl.trim()}
+          <img
+            src={avatarUrl.trim()}
+            alt={displayName}
+            class="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-[#00a884] shrink-0"
+            onerror={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        {:else}
+          <div class="w-14 h-14 rounded-full bg-[#00a884] text-white font-bold flex items-center justify-center text-lg shadow-sm shrink-0">
+            {(displayName || 'U').slice(0, 2).toUpperCase()}
+          </div>
+        {/if}
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-bold text-[#111b21] dark:text-[#e9edef] truncate">{displayName || chatStore.currentUsername}</p>
+          <p class="text-xs text-[#00a884] dark:text-[#25d366] font-semibold">{chatStore.authUser ? chatStore.authUser.role.toUpperCase() : 'TAMU'}</p>
+        </div>
+      </div>
+
       {#if profileMessage}
         <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs rounded-lg flex items-center gap-1.5">
           <span>✓</span><span>{profileMessage}</span>

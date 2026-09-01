@@ -103,8 +103,8 @@
         class="w-8 h-8 rounded-full bg-[#00a884] text-white flex items-center justify-center text-xs font-bold shadow-xs shrink-0 select-none mt-0.5 overflow-hidden"
         title={senderName}
       >
-        {#if message.sender?.avatarUrl}
-          <img src={message.sender.avatarUrl} alt={senderName} class="w-full h-full object-cover" />
+        {#if senderAvatar}
+          <img src={senderAvatar} alt={senderName} class="w-full h-full object-cover" />
         {:else}
           {senderName.slice(0, 2).toUpperCase()}
         {/if}

@@ -79,9 +79,17 @@
       class="flex items-center gap-2.5 hover:opacity-80 transition text-left"
       title="Profil Anda"
     >
-      <div class="w-9 h-9 rounded-full bg-[#00a884] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
-        {chatStore.currentUsername.slice(0, 2).toUpperCase()}
-      </div>
+      {#if chatStore.authUser?.avatarUrl}
+        <img
+          src={chatStore.authUser.avatarUrl}
+          alt={chatStore.authUser?.displayName || chatStore.currentUsername}
+          class="w-9 h-9 rounded-full object-cover shadow-xs shrink-0 border border-black/10 dark:border-white/10"
+        />
+      {:else}
+        <div class="w-9 h-9 rounded-full bg-[#00a884] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
+          {(chatStore.authUser?.displayName || chatStore.currentUsername).slice(0, 2).toUpperCase()}
+        </div>
+      {/if}
       <div class="min-w-0">
         <p class="text-[13px] font-bold text-[#111b21] dark:text-[#e9edef] truncate max-w-[120px]">
           {chatStore.currentUsername}
@@ -312,8 +320,18 @@
             class="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-100 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] group"
           >
             <!-- User Avatar with Green online dot -->
-            <div class="relative w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-base shrink-0 shadow-2xs">
-              {(user.displayName || user.username).slice(0, 2).toUpperCase()}
+            <div class="relative w-12 h-12 rounded-full shrink-0 shadow-2xs">
+              {#if user.avatarUrl}
+                <img
+                  src={user.avatarUrl}
+                  alt={user.displayName || user.username}
+                  class="w-12 h-12 rounded-full object-cover border border-black/5 dark:border-white/5"
+                />
+              {:else}
+                <div class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-base">
+                  {(user.displayName || user.username).slice(0, 2).toUpperCase()}
+                </div>
+              {/if}
               <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#25d366] border-2 border-white dark:border-[#111b21]"></span>
             </div>
 

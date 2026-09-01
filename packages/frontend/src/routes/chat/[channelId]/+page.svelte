@@ -509,9 +509,17 @@
 
       <!-- Avatar or Channel Icon -->
       {#if isDirectMessage}
-        <div class="w-10 h-10 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0 select-none">
-          {(channelDisplayName || 'U').slice(0, 2).toUpperCase()}
-        </div>
+        {#if dmTargetUser?.avatarUrl}
+          <img
+            src={dmTargetUser.avatarUrl}
+            alt={channelDisplayName}
+            class="w-10 h-10 rounded-full object-cover shadow-xs shrink-0 select-none border border-black/10 dark:border-white/10"
+          />
+        {:else}
+          <div class="w-10 h-10 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0 select-none">
+            {(channelDisplayName || 'U').slice(0, 2).toUpperCase()}
+          </div>
+        {/if}
       {:else}
         <div class="w-10 h-10 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0 select-none">
           #
