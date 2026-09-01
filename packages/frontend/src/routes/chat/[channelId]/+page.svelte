@@ -410,11 +410,13 @@
   }
 
   async function handleFileUpload(e: Event) {
-    const filesList = fileInput.files;
+    const target = e.target as HTMLInputElement;
+    const filesList = target?.files || fileInput?.files || cameraInput?.files;
     if (!filesList || filesList.length === 0) return;
 
     isUploadingFile = true;
     const base = getApiBase();
+    const newlyUploaded: { url: string; name: string; type: string; size: number }[] = [];
     
     for (let i = 0; i < filesList.length; i++) {
       const file = filesList[i];
@@ -428,14 +430,21 @@
         });
         if (res.ok) {
           const uploaded = await res.json();
-          uploadedFiles = [...uploadedFiles, uploaded];
+          newlyUploaded.push(uploaded);
         }
       } catch (err) {
         console.error('Upload failed', err);
       }
     }
+    
+    if (newlyUploaded.length > 0) {
+      uploadedFiles = [...uploadedFiles, ...newlyUploaded];
+    }
+
     isUploadingFile = false;
-    fileInput.value = '';
+    if (target) target.value = '';
+    if (fileInput) fileInput.value = '';
+    if (cameraInput) cameraInput.value = '';
   }
 
   function removeUploadedFile(index: number) {
