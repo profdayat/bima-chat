@@ -1,75 +1,84 @@
 #!/bin/bash
 set -e
 
-# File to store the currently active environment (blue or green)
 ENV_FILE="./.active_env"
-COMPOSE_FILE="deployments/docker-compose.prod.yml"
-BASE_COMPOSE="deployments/docker-compose.yml"
+COMPOSE_FILE="deployments/docker-compose.yml"
+NGINX_CONF="deployments/nginx/default.conf"
 
-# Check if .active_env exists, default to green if not (so we deploy to blue first)
+# Default to blue if no active_env file
 if [ ! -f "$ENV_FILE" ]; then
-    echo "green" > "$ENV_FILE"
+    echo "blue" > "$ENV_FILE"
 fi
 
 ACTIVE_ENV=$(cat "$ENV_FILE")
 
 if [ "$ACTIVE_ENV" = "blue" ]; then
     IDLE_ENV="green"
-    IDLE_PORT="8096"
 else
     IDLE_ENV="blue"
-    IDLE_PORT="8095"
 fi
 
-echo "Active environment is: $ACTIVE_ENV"
-echo "Deploying to: $IDLE_ENV"
+echo "=========================================================="
+echo "      BIMA CHAT - ZERO DOWNTIME BLUE-GREEN DEPLOYMENT     "
+echo "=========================================================="
+echo "  Active Environment : $ACTIVE_ENV"
+echo "  Deploying Target   : $IDLE_ENV"
+echo "=========================================================="
 
-# 1. Pull the new image and start the idle environment
-echo "Starting $IDLE_ENV container..."
-docker compose -f $BASE_COMPOSE -f $COMPOSE_FILE up -d --build "bun-chat-$IDLE_ENV"
+# 1. Start or ensure persistent infra (Postgres, Redis, Nginx)
+echo "📦 Ensuring infrastructure (Postgres, Redis, Nginx) is up..."
+docker compose -f $COMPOSE_FILE up -d postgres redis
 
-# 2. Wait for the idle environment to be healthy
-echo "Waiting for $IDLE_ENV to become healthy..."
-MAX_ATTEMPTS=30
+# 2. Build and start the idle pair (backend + frontend)
+echo "🚀 Building and starting $IDLE_ENV environment..."
+docker compose -f $COMPOSE_FILE --profile manual up -d --build "backend-$IDLE_ENV" "frontend-$IDLE_ENV"
+
+# 3. Health check the idle backend container
+echo "⏳ Verifying health of $IDLE_ENV environment..."
+MAX_ATTEMPTS=25
 ATTEMPTS=0
 HEALTHY=false
 
 while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-    # Simple HTTP check to the idle container
-    STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$IDLE_PORT/api/swagger || echo "000")
+    STATUS=$(docker exec "bima-chat-backend-$IDLE_ENV" wget -q -O - http://localhost:8080/api/chat/channels 2>/dev/null | grep -o 'general' || echo "")
     
-    if [ "$STATUS_CODE" = "200" ]; then
+    if [ "$STATUS" = "general" ]; then
         HEALTHY=true
         break
     fi
     
-    echo "Attempt $((ATTEMPTS+1))/$MAX_ATTEMPTS: Status $STATUS_CODE"
+    echo "  Waiting for bima-chat-backend-$IDLE_ENV... (Attempt $((ATTEMPTS+1))/$MAX_ATTEMPTS)"
     sleep 2
     ATTEMPTS=$((ATTEMPTS+1))
 done
 
 if [ "$HEALTHY" = false ]; then
-    echo "Error: $IDLE_ENV failed to become healthy. Aborting deployment."
-    echo "Stopping failed $IDLE_ENV container..."
-    docker compose -f $BASE_COMPOSE -f $COMPOSE_FILE stop "bun-chat-$IDLE_ENV"
+    echo "❌ Error: $IDLE_ENV environment failed health check. Rolling back!"
+    docker compose -f $COMPOSE_FILE stop "backend-$IDLE_ENV" "frontend-$IDLE_ENV"
     exit 1
 fi
 
-echo "$IDLE_ENV is healthy!"
+echo "✅ $IDLE_ENV environment is healthy and responding!"
 
-# 3. Switch Nginx configuration to point to the new environment
-echo "Switching Nginx traffic to $IDLE_ENV..."
-sed -i "s/server bun-chat-$ACTIVE_ENV:8080/server bun-chat-$IDLE_ENV:8080/g" deployments/nginx/default.conf
+# 4. Start Nginx if not already running
+docker compose -f $COMPOSE_FILE up -d chat-nginx
 
-# 4. Reload Nginx for zero-downtime switch
-echo "Reloading Nginx..."
-docker exec chat-nginx nginx -s reload
+# 5. Switch Nginx configuration to point to the new IDLE environment
+echo "🔄 Switching Nginx upstream traffic to $IDLE_ENV..."
+sed -i "s/server bima-chat-backend-$ACTIVE_ENV:8080/server bima-chat-backend-$IDLE_ENV:8080/g" "$NGINX_CONF"
+sed -i "s/server bima-chat-frontend-$ACTIVE_ENV:5173/server bima-chat-frontend-$IDLE_ENV:5173/g" "$NGINX_CONF"
 
-# 5. Stop the old environment
-echo "Stopping $ACTIVE_ENV container..."
-docker compose -f $BASE_COMPOSE -f $COMPOSE_FILE stop "bun-chat-$ACTIVE_ENV"
+# 6. Hot-reload Nginx with zero downtime
+echo "⚡ Hot-reloading Nginx (Zero Downtime)..."
+docker exec bima-chat-nginx nginx -s reload 2>/dev/null || docker compose -f $COMPOSE_FILE restart chat-nginx
 
-# 6. Update the active environment file
+# 7. Gracefully stop the old ACTIVE environment
+echo "🛑 Stopping old $ACTIVE_ENV environment..."
+docker compose -f $COMPOSE_FILE stop "backend-$ACTIVE_ENV" "frontend-$ACTIVE_ENV" 2>/dev/null || true
+
+# 8. Update the active environment marker
 echo "$IDLE_ENV" > "$ENV_FILE"
 
-echo "Deployment successful! Active environment is now $IDLE_ENV."
+echo "=========================================================="
+echo "🎉 SUCCESS: Deployment complete! Active environment is $IDLE_ENV."
+echo "=========================================================="

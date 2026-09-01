@@ -1,10 +1,28 @@
 name: bima-chat
 
 services:
-  backend:
+  # NGINX REVERSE PROXY & ZERO DOWNTIME LOAD BALANCER
+  chat-nginx:
+    image: nginx:1.27-alpine
+    container_name: bima-chat-nginx
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8095}:8095"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+      - uploads-data:/app/packages/frontend/static/uploads:ro
+    networks:
+      - chat-net
+    depends_on:
+      - backend-blue
+      - frontend-blue
+
+  # BLUE ENVIRONMENT (Active by default)
+  backend-blue:
     build:
       context: ../
       dockerfile: packages/backend/develop.dockerfile
+    container_name: bima-chat-backend-blue
     restart: unless-stopped
     env_file:
       - ../.env
@@ -12,8 +30,8 @@ services:
       - APP_PORT=8080
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=${DB_USER:-bimachat_user}
-      - DB_PASSWORD=${DB_PASSWORD:-bima_rsud_secret2026}
+      - DB_USER=${DB_USER:-bimachat_prod}
+      - DB_PASSWORD=${DB_PASSWORD:-bima_rsud_bangil_sec2026_db}
       - DB_NAME=${DB_NAME:-bima_chat_db}
       - REDIS_URL=redis://redis:6379
       - MONOREPO_ROOT=/app
@@ -27,35 +45,83 @@ services:
     networks:
       - chat-net
 
-  frontend:
+  frontend-blue:
     build:
       context: ../
       dockerfile: packages/frontend/develop.dockerfile
+    container_name: bima-chat-frontend-blue
     restart: unless-stopped
     env_file:
       - ../.env
     environment:
-      - BACKEND_INTERNAL_URL=http://backend:8080
-    ports:
-      - "${FRONTEND_PORT:-8095}:5173"
+      - BACKEND_INTERNAL_URL=http://backend-blue:8080
     volumes:
       - uploads-data:/app/packages/frontend/static/uploads
     depends_on:
-      - backend
+      - backend-blue
     networks:
       - chat-net
 
+  # GREEN ENVIRONMENT (Manual profile for idle during blue-green deployment)
+  backend-green:
+    build:
+      context: ../
+      dockerfile: packages/backend/develop.dockerfile
+    container_name: bima-chat-backend-green
+    restart: "no"
+    profiles: ["manual"]
+    env_file:
+      - ../.env
+    environment:
+      - APP_PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-bimachat_prod}
+      - DB_PASSWORD=${DB_PASSWORD:-bima_rsud_bangil_sec2026_db}
+      - DB_NAME=${DB_NAME:-bima_chat_db}
+      - REDIS_URL=redis://redis:6379
+      - MONOREPO_ROOT=/app
+    volumes:
+      - uploads-data:/app/packages/frontend/static/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chat-net
+
+  frontend-green:
+    build:
+      context: ../
+      dockerfile: packages/frontend/develop.dockerfile
+    container_name: bima-chat-frontend-green
+    restart: "no"
+    profiles: ["manual"]
+    env_file:
+      - ../.env
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend-green:8080
+    volumes:
+      - uploads-data:/app/packages/frontend/static/uploads
+    depends_on:
+      - backend-green
+    networks:
+      - chat-net
+
+  # PERSISTENT INFRASTRUCTURE (Shared between Blue and Green)
   postgres:
     image: postgres:16-alpine
+    container_name: bima-chat-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-bimachat_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-bima_rsud_secret2026}
+      POSTGRES_USER: ${DB_USER:-bimachat_prod}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bima_rsud_bangil_sec2026_db}
       POSTGRES_DB: ${DB_NAME:-bima_chat_db}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bimachat_user} -d ${DB_NAME:-bima_chat_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bimachat_prod} -d ${DB_NAME:-bima_chat_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -64,6 +130,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: bima-chat-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
