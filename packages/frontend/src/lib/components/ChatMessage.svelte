@@ -31,7 +31,13 @@
   }
 
   let senderName = $derived(
-    message.sender?.username || (typeof message.sender === 'string' ? message.sender : message.type === 'webhook_inbound' ? 'Webhook System' : 'Staff RSUD')
+    message.sender?.displayName || message.sender?.username || (typeof message.sender === 'string' ? message.sender : message.type === 'webhook_inbound' ? 'Webhook System' : 'Staff RSUD')
+  );
+
+  let senderAvatar = $derived(
+    message.sender?.avatarUrl ||
+    chatStore.usersList.find(u => u.username === (message.sender?.username || message.sender) || u.id === message.sender?.id)?.avatarUrl ||
+    (isSelf ? chatStore.authUser?.avatarUrl : undefined)
   );
   let isWebhook = $derived(message.type === 'webhook_inbound');
   let msgStatus: MessageStatus = $derived(message.status || 'sent');
