@@ -320,9 +320,10 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       let fileSize: number;
 
       if (isImage) {
-        // Convert image to WebP with max 1920px width, quality 82 for huge savings
+        // Auto-orient based on EXIF camera orientation metadata, convert to WebP with max 1920px width
         filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.webp`;
         savedBuffer = await sharp(buffer)
+          .rotate()
           .resize({ width: 1920, withoutEnlargement: true })
           .webp({ quality: 82, effort: 4 })
           .toBuffer();
