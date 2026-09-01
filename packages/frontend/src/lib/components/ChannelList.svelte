@@ -90,7 +90,7 @@
           class="w-9 h-9 rounded-full object-cover shadow-xs shrink-0 border border-black/10 dark:border-white/10"
         />
       {:else}
-        <div class="w-9 h-9 rounded-full bg-[#00a884] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
+        <div class="w-9 h-9 rounded-full bg-[#008069] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
           {(chatStore.authUser?.displayName || chatStore.currentUsername).slice(0, 2).toUpperCase()}
         </div>
       {/if}
@@ -98,14 +98,14 @@
         <p class="text-[13px] font-bold text-[#111b21] dark:text-[#e9edef] truncate max-w-[120px]">
           {chatStore.currentUsername}
         </p>
-        <p class="text-[10px] text-[#00a884] dark:text-[#25d366] font-semibold">
+        <p class="text-[10px] text-[#008069] dark:text-[#25d366] font-semibold">
           {chatStore.authUser ? chatStore.authUser.role.toUpperCase() : 'TAMU'}
         </p>
       </div>
     </button>
 
     <!-- Top Action Icons (Dark mode, Admin, Close) -->
-    <div class="flex items-center gap-1 text-[#54656f] dark:text-[#aebac1]">
+    <div class="flex items-center gap-1 text-[#4b5563] dark:text-[#aebac1]">
       <!-- New Channel Icon -->
       <button
         onclick={() => (isCreating = !isCreating)}
@@ -134,11 +134,11 @@
         </a>
       {/if}
 
-      <!-- Dark Mode Toggle -->
+      <!-- Theme Switcher -->
       <!-- Sound Notification Toggle -->
       <button
         onclick={() => chatStore.toggleSound()}
-        class="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition text-[#54656f] dark:text-[#aebac1]"
+        class="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition text-[#4b5563] dark:text-[#aebac1]"
         title={chatStore.isSoundEnabled ? 'Nada Pesan Aktif (Klik untuk matikan)' : 'Nada Pesan Hening (Klik untuk aktifkan)'}
         aria-label="Toggle Nada Pesan"
       >
@@ -193,9 +193,9 @@
         bind:value={searchQuery}
         placeholder="Cari atau mulai obrolan baru"
         aria-label="Cari atau mulai obrolan baru"
-        class="w-full text-[13px] py-1.5 pl-9 pr-3 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg text-[#111b21] dark:text-[#d1d7db] placeholder-[#8696a0] border-0 focus:ring-0 outline-none"
+        class="w-full text-[13px] py-1.5 pl-9 pr-3 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg text-[#111b21] dark:text-[#d1d7db] placeholder-[#4b5563] dark:placeholder-[#9ca3af] border-0 focus:ring-0 outline-none"
       />
-      <svg class="w-4 h-4 text-[#8696a0] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-4 h-4 text-[#4b5563] dark:text-[#9ca3af] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
       </svg>
     </div>
@@ -210,8 +210,8 @@
         onclick={() => (activeTab = 'all')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'all'
-            ? 'bg-[#00a884] text-white'
-            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
+            ? 'bg-[#008069] text-white'
+            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#4b5563] dark:text-[#9ca3af] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
       >
         Semua
       </button>
@@ -223,8 +223,8 @@
         onclick={() => (activeTab = 'channels')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'channels'
-            ? 'bg-[#00a884] text-white'
-            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
+            ? 'bg-[#008069] text-white'
+            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#4b5563] dark:text-[#9ca3af] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
       >
         Channel ({filteredChannels.length})
       </button>
@@ -236,8 +236,8 @@
         onclick={() => (activeTab = 'direct')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'direct'
-            ? 'bg-[#00a884] text-white'
-            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
+            ? 'bg-[#008069] text-white'
+            : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#4b5563] dark:text-[#9ca3af] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
       >
         Pribadi / DM ({filteredStaffUsers.length})
       </button>
@@ -245,10 +245,10 @@
 
     <!-- Inline Create Channel Form -->
     {#if isCreating}
-      <form onsubmit={handleCreateChannel} class="p-2.5 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg space-y-2 animate-fadeIn border border-[#00a884]/30">
+      <form onsubmit={handleCreateChannel} class="p-2.5 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg space-y-2 animate-fadeIn border border-[#008069]/30">
         <label for="newChanInput" class="block text-xs font-semibold text-[#111b21] dark:text-[#e9edef]">Nama Channel Baru:</label>
         <div class="flex items-center space-x-1">
-          <span class="text-[#8696a0] text-sm font-bold">#</span>
+          <span class="text-[#4b5563] dark:text-[#9ca3af] text-sm font-bold">#</span>
           <input
             id="newChanInput"
             type="text"
@@ -263,14 +263,14 @@
           <button
             type="button"
             onclick={() => (isCreating = false)}
-            class="text-xs px-2.5 py-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded"
+            class="text-xs px-2.5 py-1 text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111b21] dark:hover:text-white rounded"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={!newChannelName.trim() || isSubmitting}
-            class="text-xs px-3 py-1 bg-[#00a884] hover:bg-[#00a884]/90 text-white rounded-md font-bold disabled:opacity-50 transition"
+            class="text-xs px-3 py-1 bg-[#008069] hover:bg-[#007a60] text-white rounded-md font-bold disabled:opacity-50 transition"
           >
             {isSubmitting ? 'Membuat...' : 'Buat Channel'}
           </button>
@@ -284,8 +284,8 @@
     <!-- 1. Channels Section -->
     {#if activeTab === 'all' || activeTab === 'channels'}
       {#if chatStore.isLoadingChannels}
-        <div class="p-6 text-center text-xs text-[#8696a0] space-y-2">
-          <div class="animate-spin w-4 h-4 border-2 border-[#00a884] border-t-transparent rounded-full mx-auto"></div>
+        <div class="p-6 text-center text-xs text-[#4b5563] dark:text-[#9ca3af] space-y-2">
+          <div class="animate-spin w-4 h-4 border-2 border-[#008069] border-t-transparent rounded-full mx-auto"></div>
           <p>Memuat percakapan...</p>
         </div>
       {:else}
@@ -299,7 +299,7 @@
                 : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'}"
           >
             <!-- Avatar -->
-            <div class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-2xs">
+            <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-2xs">
               #
             </div>
 
@@ -309,11 +309,11 @@
                 <span class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
                   {channel.name}
                 </span>
-                <span class="text-[11px] text-[#667781] dark:text-[#8696a0] shrink-0 ml-2">
+                <span class="text-[11px] text-[#4b5563] dark:text-[#9ca3af] shrink-0 ml-2">
                   RSUD
                 </span>
               </div>
-              <p class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5">
+              <p class="text-[13px] text-[#4b5563] dark:text-[#9ca3af] truncate mt-0.5">
                 Channel komunikasi tim internal
               </p>
             </div>
@@ -326,7 +326,7 @@
     {#if activeTab === 'all' || activeTab === 'direct'}
       {#if filteredStaffUsers.length > 0}
         {#if activeTab === 'all'}
-          <div class="px-4 py-1.5 bg-[#f0f2f5]/60 dark:bg-[#202c33]/60 text-[11px] font-bold text-[#8696a0] uppercase tracking-wide">
+          <div class="px-4 py-1.5 bg-[#f0f2f5]/60 dark:bg-[#202c33]/60 text-[11px] font-bold text-[#4b5563] dark:text-[#9ca3af] uppercase tracking-wide">
             Pesan Pribadi Antar Staf
           </div>
         {/if}
@@ -349,7 +349,7 @@
                   class="w-12 h-12 rounded-full object-cover border border-black/5 dark:border-white/5"
                 />
               {:else}
-                <div class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-base">
+                <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-base">
                   {(user.displayName || user.username).slice(0, 2).toUpperCase()}
                 </div>
               {/if}
@@ -362,11 +362,11 @@
                 <span class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
                   {user.displayName || user.username}
                 </span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#00a884]/15 text-[#00a884] dark:text-[#25d366] font-bold shrink-0 ml-2">
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#008069]/15 text-[#008069] dark:text-[#25d366] font-bold shrink-0 ml-2">
                   {user.role.toUpperCase()}
                 </span>
               </div>
-              <p class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5 flex items-center gap-1">
+              <p class="text-[13px] text-[#4b5563] dark:text-[#9ca3af] truncate mt-0.5 flex items-center gap-1">
                 <span>Klik untuk chat 1-on-1</span>
               </p>
             </div>
@@ -381,7 +381,7 @@
     <div class="p-3 bg-[#f0f2f5] dark:bg-[#202c33] border-t border-[#d1d7db] dark:border-[#222d34]">
       <button
         onclick={() => uiStore.openAuthModal()}
-        class="w-full py-2 px-3 bg-[#00a884] hover:bg-[#00a884]/90 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs"
+        class="w-full py-2 px-3 bg-[#008069] hover:bg-[#007a60] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>

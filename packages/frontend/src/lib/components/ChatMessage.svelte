@@ -106,7 +106,7 @@
     <!-- Top-Aligned Profile Avatar Photo (WhatsApp Style) -->
     {#if !isSelf}
       <div
-        class="w-8 h-8 rounded-full bg-[#00a884] text-white flex items-center justify-center text-xs font-bold shadow-xs shrink-0 select-none mt-0.5 overflow-hidden"
+        class="w-8 h-8 rounded-full bg-[#008069] text-white flex items-center justify-center text-xs font-bold shadow-xs shrink-0 select-none mt-0.5 overflow-hidden"
         title={senderName}
       >
         {#if senderAvatar}
@@ -154,7 +154,7 @@
         {#if !isSelf}
           <div class="flex items-center justify-between gap-3 text-xs font-bold {getSenderColor(senderName)} mb-0.5 select-none pr-5">
             <span class="truncate">~ {senderName}</span>
-            <span class="text-[10px] text-[#667781] dark:text-[#8696a0] font-normal shrink-0">
+            <span class="text-[10px] text-[#4b5563] dark:text-[#9ca3af] font-normal shrink-0">
               {isWebhook ? 'WEBHOOK' : 'RSUD'}
             </span>
           </div>
@@ -168,11 +168,11 @@
 
         <!-- Replied Quote inside Bubble (WhatsApp Style) -->
         {#if repliedMessage}
-          <div class="mb-1.5 p-2 bg-black/5 dark:bg-[#182229] rounded-md text-xs border-l-4 border-[#00a884] max-w-full text-left truncate">
-            <p class="font-bold text-[#00a884] dark:text-[#53bdeb] text-[11.5px]">
+          <div class="mb-1.5 p-2 bg-black/5 dark:bg-[#182229] rounded-md text-xs border-l-4 border-[#008069] max-w-full text-left truncate">
+            <p class="font-bold text-[#008069] dark:text-[#53bdeb] text-[11.5px]">
               ~ {repliedMessage.sender?.username || 'Staff RSUD'}
             </p>
-            <p class="text-[#54656f] dark:text-[#8696a0] text-[12.5px] truncate mt-0.5">
+            <p class="text-[#4b5563] dark:text-[#9ca3af] text-[12.5px] truncate mt-0.5">
               {repliedMessage.text}
             </p>
           </div>
@@ -192,7 +192,7 @@
 
             <!-- Timestamp & Status Checkmarks Floated inline -->
             <span
-              class="inline-flex items-center gap-1 float-right translate-y-1.5 ml-2.5 text-[11px] select-none text-[#667781] dark:text-[#8696a0]"
+              class="inline-flex items-center gap-1 float-right translate-y-1.5 ml-2.5 text-[11px] select-none text-[#4b5563] dark:text-[#9ca3af]"
             >
               <span>{formatTime(message.timestamp)}</span>
 
@@ -229,7 +229,7 @@
           </div>
         {:else}
           <!-- Timestamp & Status Checkmarks for media-only messages without caption -->
-          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#667781] dark:text-[#8696a0] -mt-0.5 pt-0.5">
+          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#4b5563] dark:text-[#9ca3af] -mt-0.5 pt-0.5">
             <span>{formatTime(message.timestamp)}</span>
 
             {#if isSelf}

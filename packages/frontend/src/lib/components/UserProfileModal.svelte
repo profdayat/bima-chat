@@ -105,20 +105,20 @@
             height="56"
             loading="lazy"
             decoding="async"
-            class="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-[#00a884] shrink-0"
+            class="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-[#008069] shrink-0"
             onerror={(e) => {
               const target = e.currentTarget as HTMLImageElement;
               target.style.display = 'none';
             }}
           />
         {:else}
-          <div class="w-14 h-14 rounded-full bg-[#00a884] text-white font-bold flex items-center justify-center text-lg shadow-sm shrink-0">
+          <div class="w-14 h-14 rounded-full bg-[#008069] text-white font-bold flex items-center justify-center text-lg shadow-sm shrink-0">
             {(displayName || 'U').slice(0, 2).toUpperCase()}
           </div>
         {/if}
         <div class="min-w-0 flex-1">
           <p class="text-sm font-bold text-[#111b21] dark:text-[#e9edef] truncate">{displayName || chatStore.currentUsername}</p>
-          <p class="text-xs text-[#00a884] dark:text-[#25d366] font-semibold">{chatStore.authUser ? chatStore.authUser.role.toUpperCase() : 'TAMU'}</p>
+          <p class="text-xs text-[#008069] dark:text-[#25d366] font-semibold">{chatStore.authUser ? chatStore.authUser.role.toUpperCase() : 'TAMU'}</p>
         </div>
       </div>
 
@@ -140,7 +140,7 @@
           type="text"
           bind:value={displayName}
           required
-          class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none"
+          class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none"
         />
       </div>
 
@@ -152,7 +152,7 @@
             type="url"
             bind:value={avatarUrl}
             placeholder="https://example.com/foto.jpg"
-            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none"
+            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none"
           />
         </div>
       {/if}
@@ -160,7 +160,7 @@
       <button
         type="submit"
         disabled={isSavingProfile}
-        class="w-full py-2.5 bg-[#00a884] hover:bg-[#00a884]/90 text-white font-semibold text-xs rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
+        class="w-full py-2.5 bg-[#008069] hover:bg-[#008069]/90 text-white font-semibold text-xs rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
       >
         {isSavingProfile ? 'Menyimpan...' : 'Simpan Profil'}
       </button>
@@ -185,19 +185,19 @@
         <div>
           <label for="oldPassword" class="block text-xs font-semibold text-[#54656f] dark:text-[#8696a0] mb-1">Password Lama</label>
           <input id="oldPassword" type="password" bind:value={oldPassword} required
-            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none" />
+            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none" />
         </div>
 
         <div>
           <label for="newPassword" class="block text-xs font-semibold text-[#54656f] dark:text-[#8696a0] mb-1">Password Baru (Min. 6 karakter)</label>
           <input id="newPassword" type="password" bind:value={newPassword} required minlength="6"
-            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none" />
+            class="w-full text-sm py-2 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none" />
         </div>
 
         <button
           type="submit"
           disabled={isSavingPassword}
-          class="w-full py-2.5 bg-[#00a884] hover:bg-[#00a884]/90 text-white font-semibold text-xs rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
+          class="w-full py-2.5 bg-[#008069] hover:bg-[#008069]/90 text-white font-semibold text-xs rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
         >
           {isSavingPassword ? 'Memproses...' : 'Ubah Password'}
         </button>

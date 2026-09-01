@@ -58,17 +58,13 @@
     </div>
 
     <!-- Adjustable Drag Handle Separator -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
-      role="separator"
-      tabindex="0"
-      aria-label="Resize Sidebar"
+      aria-hidden="true"
       onmousedown={startResizing}
-      class="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#00a884] active:bg-[#00a884] transition-colors z-30 group flex items-center justify-center select-none"
+      class="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#008069] active:bg-[#008069] transition-colors z-30 group flex items-center justify-center select-none"
       title="Tarik untuk memperlebar / memperkecil sidebar"
     >
-      <div class="w-0.5 h-full bg-transparent group-hover:bg-[#00a884] group-active:bg-[#00a884] transition-colors"></div>
+      <div class="w-0.5 h-full bg-transparent group-hover:bg-[#008069] group-active:bg-[#008069] transition-colors"></div>
     </div>
   </div>
 

@@ -521,12 +521,12 @@
             class="w-10 h-10 rounded-full object-cover shadow-xs shrink-0 select-none border border-black/10 dark:border-white/10"
           />
         {:else}
-          <div class="w-10 h-10 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0 select-none">
+          <div class="w-10 h-10 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0 select-none">
             {(channelDisplayName || 'U').slice(0, 2).toUpperCase()}
           </div>
         {/if}
       {:else}
-        <div class="w-10 h-10 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0 select-none">
+        <div class="w-10 h-10 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0 select-none">
           #
         </div>
       {/if}
@@ -535,14 +535,14 @@
         <h1 class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] flex items-center gap-1.5 leading-tight truncate">
           <span>{channelDisplayName}</span>
           {#if isDirectMessage && dmTargetUser}
-            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#00a884]/20 text-[#00a884] dark:text-[#25d366]">
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#008069]/20 text-[#008069] dark:text-[#25d366]">
               {dmTargetUser.role.toUpperCase()}
             </span>
           {/if}
         </h1>
-        <div class="text-[12px] text-[#667781] dark:text-[#8696a0] truncate">
+        <div class="text-[12px] text-[#4b5563] dark:text-[#8696a0] truncate">
           {#if isDirectMessage}
-            <span class="text-[#00a884] dark:text-[#25d366] font-medium">Online</span>
+            <span class="text-[#008069] dark:text-[#25d366] font-medium">Online</span>
           {:else}
             <span>{chatStore.onlineCount} online • BIMA Chat RSUD</span>
           {/if}
@@ -554,13 +554,13 @@
     <div class="flex items-center gap-2">
       <div class="flex items-center px-2.5 py-1 rounded-full text-xs font-medium border
         {chatStore.isConnected 
-          ? 'bg-emerald-500/10 text-[#00a884] dark:text-[#25d366] border-[#00a884]/30' 
+          ? 'bg-emerald-500/10 text-[#008069] dark:text-[#25d366] border-[#008069]/30' 
           : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
       >
         <span class="flex h-2 w-2 relative mr-1.5">
           {#if chatStore.isConnected}
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#00a884]"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069]"></span>
           {:else}
             <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
           {/if}
@@ -582,10 +582,10 @@
       >
         <span class="text-amber-500 font-bold text-sm shrink-0">📌</span>
         <div class="min-w-0 truncate">
-          <span class="font-bold text-[#00a884] dark:text-[#25d366] mr-1">
+          <span class="font-bold text-[#008069] dark:text-[#25d366] mr-1">
             {latestPinned.sender?.username || 'Pesan Disematkan'}:
           </span>
-          <span class="text-[#54656f] dark:text-[#8696a0] truncate">
+          <span class="text-[#4b5563] dark:text-[#9ca3af] truncate">
             "{latestPinned.text}"
           </span>
         </div>
@@ -620,13 +620,13 @@
       <ChatSkeleton />
     {:else}
       {#if isLoadingMore}
-        <div class="py-2 flex items-center justify-center gap-2 text-xs text-[#667781] dark:text-[#8696a0]">
-          <div class="w-3.5 h-3.5 border-2 border-[#00a884] border-t-transparent rounded-full animate-spin"></div>
+        <div class="py-2 flex items-center justify-center gap-2 text-xs text-[#4b5563] dark:text-[#9ca3af]">
+          <div class="w-3.5 h-3.5 border-2 border-[#008069] border-t-transparent rounded-full animate-spin"></div>
           <span>Memuat riwayat pesan...</span>
         </div>
       {:else if !hasMore && chatStore.messages.length > 0}
         <div class="py-3 text-center">
-          <span class="px-3 py-1 bg-white/70 dark:bg-[#182229]/80 backdrop-blur-xs rounded-md text-[11px] font-medium text-[#54656f] dark:text-[#8696a0] shadow-2xs">
+          <span class="px-3 py-1 bg-white/70 dark:bg-[#182229]/80 backdrop-blur-xs rounded-md text-[11px] font-medium text-[#4b5563] dark:text-[#9ca3af] shadow-2xs">
             Awal percakapan {isDirectMessage ? 'dengan ' + channelDisplayName : '#' + channelDisplayName}
           </span>
         </div>
@@ -634,14 +634,14 @@
 
       {#if chatStore.messages.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center p-8 space-y-3">
-          <div class="w-16 h-16 rounded-full bg-white/80 dark:bg-[#202c33] text-[#00a884] dark:text-[#25d366] flex items-center justify-center text-2xl font-bold shadow-xs">
+          <div class="w-16 h-16 rounded-full bg-white/80 dark:bg-[#202c33] text-[#008069] dark:text-[#25d366] flex items-center justify-center text-2xl font-bold shadow-xs">
             {isDirectMessage ? '💬' : '#'}
           </div>
           <div>
             <h3 class="font-bold text-[#111b21] dark:text-[#e9edef] text-base">
               {isDirectMessage ? 'Percakapan Pribadi dengan ' + channelDisplayName : 'Selamat datang di #' + channelDisplayName + '!'}
             </h3>
-            <p class="text-xs text-[#667781] dark:text-[#8696a0] max-w-sm mt-1">
+            <p class="text-xs text-[#4b5563] dark:text-[#9ca3af] max-w-sm mt-1">
               {isDirectMessage ? 'Kirim pesan privat langsung kepada rekan kerja Anda.' : 'Belum ada pesan. Mulai obrolan dengan mengetik pesan di bawah.'}
             </p>
           </div>
@@ -652,7 +652,7 @@
           class="sticky top-2 inset-x-0 z-30 flex justify-center pointer-events-none transition-all duration-300
             {isScrolling ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}"
         >
-          <span class="px-3 py-1 bg-white/95 dark:bg-[#182229]/95 backdrop-blur-md text-[11.5px] font-semibold text-[#54656f] dark:text-[#8696a0] rounded-lg shadow-md border border-black/5 dark:border-white/10 uppercase tracking-wide pointer-events-auto select-none">
+          <span class="px-3 py-1 bg-white/95 dark:bg-[#182229]/95 backdrop-blur-md text-[11.5px] font-semibold text-[#4b5563] dark:text-[#9ca3af] rounded-lg shadow-md border border-black/5 dark:border-white/10 uppercase tracking-wide pointer-events-auto select-none">
             {activeFloatingDate || (messageGroupsByDate[messageGroupsByDate.length - 1]?.dateLabel || '')}
           </span>
         </div>
@@ -661,7 +661,7 @@
           <div data-date-group={group.dateLabel} class="relative w-full mb-3">
             <!-- In-stream Day Separator (Clean WhatsApp style) -->
             <div class="flex justify-center py-1.5 select-none">
-              <span class="px-3 py-0.5 bg-white/85 dark:bg-[#182229]/85 backdrop-blur-xs text-[11px] font-medium text-[#54656f] dark:text-[#8696a0] rounded-md shadow-2xs border border-black/5 dark:border-white/5 uppercase tracking-wide">
+              <span class="px-3 py-0.5 bg-white/85 dark:bg-[#182229]/85 backdrop-blur-xs text-[11px] font-medium text-[#4b5563] dark:text-[#9ca3af] rounded-md shadow-2xs border border-black/5 dark:border-white/5 uppercase tracking-wide">
                 {group.dateLabel}
               </span>
             </div>
@@ -696,7 +696,7 @@
         </svg>
 
         {#if newMessagesWhileScrolledUp > 0}
-          <span class="absolute -top-1 -right-1 bg-[#00a884] text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
+          <span class="absolute -top-1 -right-1 bg-[#008069] text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
             {newMessagesWhileScrolledUp > 9 ? '9+' : newMessagesWhileScrolledUp}
           </span>
         {/if}
@@ -708,19 +708,19 @@
   <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-transparent">
     <!-- Reply Quote Preview Floating Box -->
     {#if chatStore.replyingToMessage}
-      <div class="max-w-4xl mx-auto mb-2 px-4 py-2 bg-white/95 dark:bg-[#202c33]/95 backdrop-blur-md rounded-2xl shadow-md border-l-4 border-[#00a884] flex items-center justify-between text-xs animate-fadeIn border border-black/5 dark:border-white/5">
+      <div class="max-w-4xl mx-auto mb-2 px-4 py-2 bg-white/95 dark:bg-[#202c33]/95 backdrop-blur-md rounded-2xl shadow-md border-l-4 border-[#008069] flex items-center justify-between text-xs animate-fadeIn border border-black/5 dark:border-white/5">
         <div class="min-w-0 pr-2">
-          <p class="font-bold text-[#00a884] text-[11.5px]">
+          <p class="font-bold text-[#008069] text-[11.5px]">
             Membalas @{chatStore.replyingToMessage.sender?.username || 'Staff RSUD'}
           </p>
-          <p class="text-[#54656f] dark:text-[#8696a0] truncate text-[12px] mt-0.5">
+          <p class="text-[#4b5563] dark:text-[#9ca3af] truncate text-[12px] mt-0.5">
             "{chatStore.replyingToMessage.text}"
           </p>
         </div>
         <button
           type="button"
           onclick={() => (chatStore.replyingToMessage = null)}
-          class="text-[#8696a0] hover:text-[#111b21] dark:hover:text-white font-bold p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition"
+          class="text-[#4b5563] hover:text-[#111b21] dark:hover:text-white font-bold p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition"
           title="Batal membalas"
         >
           ✕
@@ -730,11 +730,11 @@
 
     <!-- Typing Indicator -->
     {#if typingUsers.length > 0}
-      <div class="max-w-4xl mx-auto mb-1.5 px-3 py-1 bg-white/80 dark:bg-[#182229]/80 backdrop-blur-xs rounded-full text-[11px] text-[#00a884] dark:text-[#25d366] flex items-center gap-1.5 animate-fadeIn italic shadow-2xs w-fit">
+      <div class="max-w-4xl mx-auto mb-1.5 px-3 py-1 bg-white/80 dark:bg-[#182229]/80 backdrop-blur-xs rounded-full text-[11px] text-[#008069] dark:text-[#25d366] flex items-center gap-1.5 animate-fadeIn italic shadow-2xs w-fit">
         <div class="flex space-x-1 items-center">
-          <span class="w-1.5 h-1.5 bg-[#00a884] rounded-full animate-bounce"></span>
-          <span class="w-1.5 h-1.5 bg-[#00a884] rounded-full animate-bounce [animation-delay:0.2s]"></span>
-          <span class="w-1.5 h-1.5 bg-[#00a884] rounded-full animate-bounce [animation-delay:0.4s]"></span>
+          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce"></span>
+          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce [animation-delay:0.2s]"></span>
+          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce [animation-delay:0.4s]"></span>
         </div>
         <span>{typingUsers.join(', ')} sedang mengetik...</span>
       </div>
@@ -772,7 +772,7 @@
               <button
                 type="button"
                 onclick={() => (selectedEmojiCategory = cat)}
-                class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition {selectedEmojiCategory === cat ? 'bg-[#00a884]/20 text-[#00a884] dark:text-[#25d366]' : 'text-[#8696a0] hover:bg-black/5 dark:hover:bg-white/5'}"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition {selectedEmojiCategory === cat ? 'bg-[#008069]/20 text-[#008069] dark:text-[#25d366]' : 'text-[#4b5563] hover:bg-black/5 dark:hover:bg-white/5'}"
               >
                 <span>{EMOJI_CATEGORIES[cat].icon}</span>
                 <span class="text-[11px] whitespace-nowrap">{EMOJI_CATEGORIES[cat].title}</span>
@@ -782,7 +782,7 @@
           <button
             type="button"
             onclick={() => (showEmojiPicker = false)}
-            class="text-[#8696a0] hover:text-[#111b21] dark:hover:text-white p-1 rounded-md text-xs font-bold shrink-0 ml-1"
+            class="text-[#4b5563] hover:text-[#111b21] dark:hover:text-white p-1 rounded-md text-xs font-bold shrink-0 ml-1"
             title="Tutup"
           >
             ✕
@@ -818,7 +818,7 @@
           id="btn-toggle-emoji"
           type="button"
           onclick={() => (showEmojiPicker = !showEmojiPicker)}
-          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-1"
+          class="p-1 text-[#4b5563] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-1"
           title="Pilih emoji & reaksi"
           aria-label="Pilih emoji & reaksi"
         >
@@ -864,7 +864,7 @@
             }, 120);
           }}
           placeholder="Ketik pesan"
-          class="flex-1 bg-transparent text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] text-[15px] px-1 py-2 border-0 focus:ring-0 outline-none min-w-0"
+          class="flex-1 bg-transparent text-[#111b21] dark:text-[#e9edef] placeholder-[#4b5563] dark:placeholder-[#9ca3af] text-[15px] px-1 py-2 border-0 focus:ring-0 outline-none min-w-0"
           autocomplete="off"
         />
 
@@ -872,7 +872,7 @@
         <button
           type="button"
           onclick={() => fileInput.click()}
-          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-0.5"
+          class="p-1 text-[#4b5563] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-0.5"
           title="Lampirkan berkas"
           aria-label="Lampirkan berkas"
         >
@@ -885,7 +885,7 @@
         <button
           type="button"
           onclick={() => cameraInput ? cameraInput.click() : fileInput.click()}
-          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center"
+          class="p-1 text-[#4b5563] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center"
           title="Kamera / Foto"
           aria-label="Kamera / Foto"
         >
@@ -903,8 +903,8 @@
         aria-label="Kirim Pesan"
         class="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full flex items-center justify-center transition-all shrink-0
           {canSend
-            ? 'bg-[#00a884] hover:bg-[#008f6f] active:scale-95 text-white shadow-md cursor-pointer'
-            : 'bg-[#00a884]/40 dark:bg-[#00a884]/30 text-white/60 dark:text-white/40 cursor-not-allowed shadow-none'}"
+            ? 'bg-[#008069] hover:bg-[#007a60] active:scale-95 text-white shadow-md cursor-pointer'
+            : 'bg-[#008069]/40 dark:bg-[#008069]/30 text-white/60 dark:text-white/40 cursor-not-allowed shadow-none'}"
       >
         {#if isSending}
           <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
