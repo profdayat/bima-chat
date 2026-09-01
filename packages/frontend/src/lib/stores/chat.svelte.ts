@@ -183,6 +183,8 @@ export function createChatStore() {
       if (browser) {
         localStorage.setItem('rsud_chat_user', JSON.stringify(data.user));
       }
+      // Refresh user list so updated avatar/displayName reflects everywhere
+      loadUsers();
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message || 'Error koneksi server' };

@@ -9,30 +9,26 @@ export const authMiddleware = new Elysia({ name: 'auth' })
       exp: '30d'
     })
   )
-  .derive(async ({ jwt, headers, error }) => {
+  .derive({ as: 'scoped' }, async ({ jwt, headers }) => {
     const authHeader = headers['authorization'];
     if (!authHeader?.startsWith('Bearer ')) {
       return { user: null };
     }
     
     const token = authHeader.split(' ')[1];
-    const payload = await jwt.verify(token);
-    
-    if (!payload) {
+    try {
+      const payload = await jwt.verify(token);
+      if (!payload || !payload.userId) {
+        return { user: null };
+      }
+      
+      return {
+        user: {
+          id: payload.userId as string,
+          username: payload.username as string
+        }
+      };
+    } catch {
       return { user: null };
     }
-    
-    return {
-      user: {
-        id: payload.userId as string,
-        username: payload.username as string
-      }
-    };
-  })
-  .macro(({ isAuth }) => ({
-    beforeHandle({ user, error }) {
-      if (isAuth && !user) {
-        return error(401, 'Unauthorized');
-      }
-    }
-  }));
+  });
