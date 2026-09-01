@@ -67,6 +67,7 @@
             download={file.name}
             class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/60"
             title="Download"
+            aria-label="Download foto"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -107,10 +108,20 @@
     class="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center animate-fadeIn"
     role="dialog"
     aria-modal="true"
-    onclick={closeLightbox}
+    tabindex="-1"
   >
+    <!-- Accessible backdrop button to dismiss -->
+    <button
+      type="button"
+      onclick={closeLightbox}
+      class="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default"
+      aria-label="Tutup penampil gambar"
+    ></button>
+
     <!-- Top Bar -->
-    <div class="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent z-10" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent z-10 pointer-events-auto"
+    >
       <span class="text-white text-sm font-medium truncate max-w-[70%]">{lightboxName}</span>
       <div class="flex items-center gap-2">
         <a
@@ -118,6 +129,7 @@
           download={lightboxName}
           class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
           title="Download"
+          aria-label="Download foto"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -127,6 +139,7 @@
           onclick={closeLightbox}
           class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
           title="Tutup"
+          aria-label="Tutup penampil foto"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -135,12 +148,13 @@
       </div>
     </div>
 
-    <!-- Image -->
-    <img
-      src={lightboxUrl}
-      alt={lightboxName}
-      class="max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none"
-      onclick={(e) => e.stopPropagation()}
-    />
+    <!-- Image Wrapper -->
+    <div class="relative z-10 max-w-[95vw] max-h-[90vh] flex items-center justify-center pointer-events-auto">
+      <img
+        src={lightboxUrl}
+        alt={lightboxName}
+        class="max-w-full max-h-full object-contain rounded-lg select-none"
+      />
+    </div>
   </div>
 {/if}

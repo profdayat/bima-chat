@@ -58,6 +58,8 @@
     </div>
 
     <!-- Adjustable Drag Handle Separator -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       role="separator"
       tabindex="0"

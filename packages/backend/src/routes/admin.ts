@@ -18,21 +18,21 @@ export const adminRouter = new Elysia({ prefix: '/admin', detail: { tags: ['Admi
     const authHeader = headers['authorization'];
     if (!authHeader?.startsWith('Bearer ')) {
       set.status = 401;
-      return { error: 'Unauthorized' };
+      return { success: false, error: 'Unauthorized' };
     }
 
     const token = authHeader.split(' ')[1];
     const payload = await jwt.verify(token);
     if (!payload) {
       set.status = 401;
-      return { error: 'Unauthorized: invalid token' };
+      return { success: false, error: 'Unauthorized: invalid token' };
     }
 
     const userId = payload.userId as string;
     const fullUser = (await db.select().from(schema.users).where(eq(schema.users.id, userId)))[0];
     if (!fullUser || fullUser.role !== 'admin') {
       set.status = 403;
-      return { error: 'Akses ditolak: Hanya administrator yang diijinkan.' };
+      return { success: false, error: 'Akses ditolak: Hanya administrator yang diijinkan.' };
     }
   })
 
@@ -64,32 +64,39 @@ export const adminRouter = new Elysia({ prefix: '/admin', detail: { tags: ['Admi
   })
 
   // Update user role or status
-  .put('/users/:userId', async ({ params: { userId }, body, error }) => {
+  .put('/users/:userId', async ({ params: { userId }, body, set }) => {
     try {
       const updated = await db.update(schema.users)
         .set({ role: body.role, isActive: body.isActive })
         .where(eq(schema.users.id, userId))
         .returning();
 
-      if (updated.length === 0) return error(404, 'User tidak ditemukan');
+      if (updated.length === 0) {
+        set.status = 404;
+        return { success: false, message: 'User tidak ditemukan' };
+      }
 
       return {
         success: true,
         user: { id: updated[0].id, username: updated[0].username, role: updated[0].role, isActive: updated[0].isActive }
       };
     } catch (e: any) {
-      return error(400, e.message || 'Gagal update user');
+      set.status = 400;
+      return { success: false, message: e.message || 'Gagal update user' };
     }
   }, {
     body: t.Object({ role: t.String(), isActive: t.String() })
   })
 
   // Delete channel
-  .delete('/channels/:channelId', async ({ params: { channelId }, error }) => {
+  .delete('/channels/:channelId', async ({ params: { channelId }, set }) => {
     try {
       await db.delete(schema.messages).where(eq(schema.messages.channelId, channelId));
       const deleted = await db.delete(schema.channels).where(eq(schema.channels.id, channelId)).returning();
-      if (deleted.length === 0) return error(404, 'Channel tidak ditemukan');
+      if (deleted.length === 0) {
+        set.status = 404;
+        return { success: false, message: 'Channel tidak ditemukan' };
+      }
 
       // Invalidate Redis caches
       await delCacheKeys('cache:channels:public', `cache:history:${channelId}:latest`);
@@ -97,6 +104,7 @@ export const adminRouter = new Elysia({ prefix: '/admin', detail: { tags: ['Admi
 
       return { success: true, message: 'Channel berhasil dihapus.' };
     } catch (e: any) {
-      return error(400, e.message || 'Gagal menghapus channel');
+      set.status = 400;
+      return { success: false, message: e.message || 'Gagal menghapus channel' };
     }
   });

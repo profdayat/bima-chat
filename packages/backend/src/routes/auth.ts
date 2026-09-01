@@ -7,23 +7,26 @@ import { authMiddleware } from '../middleware/auth';
 
 export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth'] } })
   .use(authMiddleware)
-  .post('/login', async ({ body, jwt, error }) => {
+  .post('/login', async ({ body, jwt, set }) => {
     const { username, password } = body;
 
     const results = await db.select().from(schema.users).where(eq(schema.users.username, username));
     const user = results.at(0);
     
     if (!user) {
-      return error(401, 'Invalid credentials');
+      set.status = 401;
+      return { success: false, message: 'Username atau password salah.' };
     }
 
     if (user.isActive === 'false') {
-      return error(403, 'Akun Anda dinonaktifkan oleh administrator.');
+      set.status = 403;
+      return { success: false, message: 'Akun Anda dinonaktifkan oleh administrator.' };
     }
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
-      return error(401, 'Invalid credentials');
+      set.status = 401;
+      return { success: false, message: 'Username atau password salah.' };
     }
 
     const token = await jwt.sign({
@@ -32,6 +35,7 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
     });
 
     return { 
+      success: true,
       token, 
       user: { 
         id: user.id, 
@@ -47,7 +51,7 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
       password: t.String()
     })
   })
-  .post('/register', async ({ body, jwt, error }) => {
+  .post('/register', async ({ body, jwt, set }) => {
     const { username, password } = body;
 
     const salt = await bcrypt.genSalt(12);
@@ -72,6 +76,7 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
       });
 
       return { 
+        success: true,
         token, 
         user: { 
           id: user.id, 
@@ -82,7 +87,8 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
         } 
       };
     } catch (e) {
-      return error(400, `Registration failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      set.status = 400;
+      return { success: false, message: `Pendaftaran gagal: ${e instanceof Error ? e.message : 'Unknown error'}` };
     }
   }, {
     body: t.Object({
@@ -90,15 +96,18 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
       password: t.String()
     })
   })
-  .get('/me', async ({ user, error }) => {
+  .get('/me', async ({ user, set }) => {
     if (!user) {
-      return error(401, 'Unauthorized');
+      set.status = 401;
+      return { success: false, message: 'Unauthorized' };
     }
     const fullUser = (await db.select().from(schema.users).where(eq(schema.users.id, user.id)))[0];
     if (!fullUser) {
-      return error(404, 'User not found');
+      set.status = 404;
+      return { success: false, message: 'User tidak ditemukan' };
     }
     return {
+      success: true,
       id: fullUser.id,
       username: fullUser.username,
       role: fullUser.role,
@@ -107,19 +116,25 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
       isActive: fullUser.isActive
     };
   })
-  .put('/profile', async ({ user, body, error }) => {
+  .put('/profile', async ({ user, body, set }) => {
     if (!user) {
-      return error(401, 'Unauthorized');
+      set.status = 401;
+      return { success: false, message: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
     try {
       const updated = await db.update(schema.users)
         .set({
           displayName: body.displayName,
-          avatarUrl: body.avatarUrl
+          avatarUrl: body.avatarUrl || null
         })
         .where(eq(schema.users.id, user.id))
         .returning();
+
+      if (updated.length === 0) {
+        set.status = 404;
+        return { success: false, message: 'User tidak ditemukan di database.' };
+      }
 
       return {
         success: true,
@@ -132,7 +147,8 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
         }
       };
     } catch (e: any) {
-      return error(400, e.message || 'Gagal update profil');
+      set.status = 400;
+      return { success: false, message: e.message || 'Gagal update profil' };
     }
   }, {
     body: t.Object({
@@ -140,15 +156,22 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
       avatarUrl: t.Optional(t.String())
     })
   })
-  .put('/password', async ({ user, body, error }) => {
+  .put('/password', async ({ user, body, set }) => {
     if (!user) {
-      return error(401, 'Unauthorized');
+      set.status = 401;
+      return { success: false, message: 'Unauthorized' };
     }
 
     const fullUser = (await db.select().from(schema.users).where(eq(schema.users.id, user.id)))[0];
+    if (!fullUser) {
+      set.status = 404;
+      return { success: false, message: 'User tidak ditemukan.' };
+    }
+
     const validPassword = await bcrypt.compare(body.oldPassword, fullUser.passwordHash);
     if (!validPassword) {
-      return error(400, 'Password lama salah.');
+      set.status = 400;
+      return { success: false, message: 'Password lama salah.' };
     }
 
     const salt = await bcrypt.genSalt(12);
