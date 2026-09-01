@@ -1,152 +1,107 @@
 # BIMA Chat — RSUD Bangil
 
-Platform Realtime Multichannel Chatting Internal RSUD Bangil (BIMA Chat) menggunakan **Elysia.js (Bun)** untuk backend, **SvelteKit (Svelte 5)** untuk frontend PWA, **PostgreSQL + Drizzle ORM**, **Redis Pub/Sub & Caching**, serta **IndexedDB Local-First Architecture**.
+Platform Realtime Multichannel Chatting Internal RSUD Bangil (**BIMA Chat**) dengan arsitektur modern berkinerja tinggi, tampilan khas WhatsApp Web & Telegram Web, serta dukungan offline-first PWA.
 
+---
 
+## 🚀 Tech Stack
 
-## Getting Started
+- **Backend**: [Elysia.js](https://elysiajs.com/) berjalan di atas runtime [Bun](https://bun.sh/) super cepat (Server-Sent Events untuk realtime streaming, REST API, Static file streamer).
+- **Frontend**: [SvelteKit](https://kit.svelte.dev/) (**Svelte 5 Runes**) + [Tailwind CSS](https://tailwindcss.com/) + PWA (Service Worker + Offline Cache).
+- **Database**: [PostgreSQL 16](https://www.postgresql.org/) dengan [Drizzle ORM](https://orm.drizzle.team/).
+- **Caching & Realtime**: [Redis 7](https://redis.io/) untuk Pub/Sub multichannel streaming dan in-memory caching query data.
+- **Local Storage**: IndexedDB (*Local-First Architecture*) untuk rendering riwayat chat instan (0 ms) tanpa menunggu jaringan.
 
-To get the project up and running, follow these steps:
+---
 
-### 1. Prerequisites
-Make sure you have the following installed:
-- [Docker](https://docs.docker.com/get-started/get-docker/)
-- [Bun](https://bun.sh/)
+## 🛠️ Manajemen Perintah (Makefile)
 
-### 2. Download the Project
+Project ini dilengkapi dengan **Makefile** untuk mempermudah operasional dan pembaruan kode di server:
 
-Then you'll need to clone the repository.
+| Perintah | Deskripsi |
+| :--- | :--- |
+| **`make update`** | **(Paling Sering Digunakan)** Menarik kode terbaru dari Git (`git pull origin main`) lalu otomatis rebuild dan jalankan container tanpa menghapus data. |
+| **`make up`** | Build & jalankan semua service di background (Production/Standar). |
+| **`make restart`** | Me-restart container secara cepat tanpa melakukan build ulang. |
+| **`make build`** | Me-rebuild image container dari Dockerfile. |
+| **`make logs`** | Melihat live log container (berguna untuk monitoring & debugging). |
+| **`make ps`** | Menampilkan status kesehatan (*health status*) container dan port yang aktif. |
+| **`make down`** | Menghentikan semua container. |
+| **`make dev`** | Menjalankan mode development dengan volume mount src (hot-reload). |
+| **`make dev-stop`** | Menghentikan mode development. |
+| **`make help`** | Menampilkan ringkasan seluruh perintah yang tersedia. |
 
+---
+
+## 📦 Panduan Instalasi & Menjalankan
+
+### 1. Prasyarat
+- [Docker & Docker Compose](https://docs.docker.com/get-started/)
+- [Bun](https://bun.sh/) (opsional jika menjalankan langsung tanpa Docker)
+
+### 2. Clone Repositori
 ```bash
 git clone git@github.com:profdayat/bima-chat.git
 cd bima-chat
 ```
 
-### 3. Install the Dependencies
-This project uses a monorepo structure, running `bun install` will install all the dependencies, for both the backend and frontend. Make sure this is run from the root of the project.
-```bash
-bun install
-```
-### 4. Create the `.env` File
-
-You need to set up environment variables for the project. These values help configure things like which domain to serve the app on. 
-
+### 3. Konfigurasi Environment (`.env`)
+Salin template konfigurasi `.env.example` ke `.env`:
 ```bash
 cp .env.example .env
 ```
+Sesuaikan variabel environment di dalam file `.env`:
+```env
+COMPOSE_PROJECT_NAME=bima-chat
+APP_ENV=production
+APP_PORT=8080
+FRONTEND_PORT=8095
 
-- **`cp .env.example .env`**: This copies the example `.env` file into a new `.env` file, which you can then edit to fill in your own values.
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=bimachat
+DB_PASSWORD=your_secure_password
+DB_NAME=bima_chat_db
 
-
-## Running the Project
-
-### Development Mode
-
-If you're working on the project locally and want to see live changes as you work, use the following command:
-
-```bash
-docker compose up --build --watch
+REDIS_URL=redis://redis:6379
+JWT_SECRET=your-random-jwt-secret-min-32-chars
+APP_FQDN=localhost:8095
 ```
 
-Let's break down this command:
-
-- **`docker compose up`**: This starts all the services defined in the `docker-compose.yaml` file (like the backend API, frontend, or database) and keeps them running.
-  
-- **`--build`**: This flag forces Docker to rebuild the images for your services (both backend and frontend) before starting them. This ensures that you're working with the most up-to-date version of your code.
-
-- **`--watch`**: This enables "hot reloading" in development mode. Docker will automatically watch your files for changes and rebuild/restart the services as needed, so you don't have to manually restart the project after each change.
-
-Once the command is running, the project will be available at:
-- [http://localhost:3000](http://localhost:3000) if no custom domain is set, or
-- The domain specified by `APP_FQDN` in your `.env` file.
-
-### Production Mode
-
-When you're ready to deploy the project for real (in a production environment), use this command:
-
+### 4. Jalankan Aplikasi
+Cukup gunakan perintah:
 ```bash
-docker compose -f compose.yaml up --build -d
+make up
 ```
-
-Let’s break down each part:
-
-- **`docker compose -f compose.yaml`**: Same as the previous example, but now we exclute the compose.override.yaml file, which was used to define a local development environment.
-
-- **`up`**: This starts all the services just like in development mode.
-
-- **`--build`**: Similar to the development mode, this flag forces Docker to rebuild all the images.
-
-- **`-d`**: The `-d` stands for "detached mode." This means Docker will run the services in the background. Once the services are up and running, you can safely close your terminal, and the services will continue to run.
-
-> **Note**: Production mode is set to work only on these standard ports (80 and 443). This is typical for web servers, ensuring compatibility with browsers and users’ requests over HTTP/HTTPS.
-
-
-
-## Running the Backend and Frontend Individually
-
-You might want to run only the backend or frontend separately during development.
-
-### Running the Backend
-Navigate to the backend directory and start the development server.
-
+Untuk memeriksa status container:
 ```bash
-cd packages/backend
-bun dev
-```
-
-### Running the Frontend
-
-Similarly, you can start the frontend by navigating to the frontend directory:
-
-```bash
-cd packages/frontend
-bun dev
+make ps
 ```
 
 ---
 
-## Building the Project
+## 🌐 Akses Aplikasi & Endpoint
 
-When you're ready to build the project for deployment, you can use the following commands:
-
-### Docker Build
-
-To build both the frontend and backend as Docker images, use:
-
-```bash
-docker compose -f compose.yaml build
-```
-
-This command packages your backend and frontend into Docker images, which are ready for deployment.
-
-### Building the Backend Manually
-
-If you only want to build the backend (e.g., if you're deploying only the API):
-
-```bash
-cd packages/backend
-bun run build
-```
-
-This creates an executable binary called `backend`, which can be run on the server.
-
-### Building the Frontend Manually
-
-For the frontend, running this command will generate static files:
-
-```bash
-cd packages/frontend
-bun dev
-```
-
-The static files for your website will be available in the `/build` folder, ready to be deployed to a static hosting provider.
+| Layanan | URL Default | Keterangan |
+| :--- | :--- | :--- |
+| **Web Chat (PWA)** | `http://<IP_SERVER>:8095/chat/general` | Antarmuka BIMA Chat Realtime |
+| **Swagger API Docs** | `http://<IP_SERVER>:8095/api/swagger` | Dokumentasi OpenAPI Backend |
+| **Akun Admin Default** | `username: admin_rsud` / `password: admin123` | Administrator Panel |
+| **Akun Staf Default** | `username: dayat` / `password: dayat123` | Staf RSUD |
 
 ---
 
-## FAQ
+## 🔄 Alur Update Kode Saat Ada Perubahan
 
-**Q: How do I fix the error: "'bundler' can only be used when 'module' is set to 'preserve' or 'es2015' or later.ts"?**
-
-**A**: This error can be resolved by building the frontend. This seems to clear up some internal conflict in the project.
-
-Feel free to reach out for further clarifications or questions!
+Jika Anda melakukan perubahan kode di komputer lokal:
+1. **Push dari Komputer Lokal**:
+   ```bash
+   git add .
+   git commit -m "feat: deskripsi perubahan"
+   git push origin main
+   ```
+2. **Deploy di Server**:
+   ```bash
+   cd ~/rsud/develop/project/bima-chat
+   make update
+   ```
