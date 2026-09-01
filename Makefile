@@ -1,6 +1,7 @@
 .PHONY: help up down restart build logs ps update dev dev-stop
 
-# Default target
+COMPOSE_CMD = docker compose --env-file .env -f deployments/docker-compose.yml
+
 help:
 	@echo "=========================================================="
 	@echo "            BIMA CHAT - MANAGEMENT COMMANDS               "
@@ -15,42 +16,39 @@ help:
 	@echo "  make dev-stop    : Hentikan mode development"
 	@echo "=========================================================="
 
-# Zero-Downtime Blue-Green Update
 update:
 	@echo "📥 Mengambil kode terbaru dari Git..."
 	git pull origin main || true
 	@echo "🚀 Memulai proses Zero-Downtime Blue-Green Deployment..."
 	./scripts/deploy-blue-green.sh
 
-# Start standard environment
 up:
 	@echo "🚀 Menjalankan BIMA Chat..."
-	docker compose -f deployments/docker-compose.yml up -d --build postgres redis backend-blue frontend-blue chat-nginx
+	$(COMPOSE_CMD) up -d --build postgres redis backend-blue frontend-blue chat-nginx
 	@echo "blue" > .active_env
 	@echo "✅ BIMA Chat aktif di port 8095!"
 
 down:
 	@echo "🛑 Menghentikan BIMA Chat..."
-	docker compose -f deployments/docker-compose.yml --profile manual down
+	$(COMPOSE_CMD) --profile manual down
 
 restart:
 	@echo "🔄 Me-restart BIMA Chat..."
-	docker compose -f deployments/docker-compose.yml restart chat-nginx
+	$(COMPOSE_CMD) restart chat-nginx
 
 logs:
-	docker compose -f deployments/docker-compose.yml logs -f --tail 50
+	$(COMPOSE_CMD) logs -f --tail 50
 
 ps:
 	@echo "=== CONTAINER STATUS ==="
-	@docker compose -f deployments/docker-compose.yml ps
+	@$(COMPOSE_CMD) ps
 	@echo "=== ACTIVE ENVIRONMENT ==="
-	@cat .active_env 2>/dev/null || echo "Unknown"
+	@cat .active_env 2>/dev/null || echo "blue"
 
-# Development commands
 dev:
 	@echo "🛠️ Menjalankan mode development..."
-	docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.dev.yml up -d
+	$(COMPOSE_CMD) -f deployments/docker-compose.dev.yml up -d
 
 dev-stop:
 	@echo "🛑 Menghentikan mode development..."
-	docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.dev.yml down
+	$(COMPOSE_CMD) -f deployments/docker-compose.dev.yml down
