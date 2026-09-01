@@ -198,28 +198,28 @@
 
               {#if isSelf}
                 {#if msgStatus === 'pending'}
-                  <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Mengirim...">
+                  <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Mengirim...">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 {:else if msgStatus === 'sent'}
-                  <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Terkirim">
+                  <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Terkirim">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 {:else if msgStatus === 'delivered'}
-                  <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan" aria-label="Tersampaikan">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div class="inline-flex -space-x-2 opacity-70" role="img" aria-label="Tersampaikan">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                   </div>
                 {:else if msgStatus === 'read'}
-                  <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca" aria-label="Dibaca">
-                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div class="inline-flex -space-x-2 text-[#53bdeb]" role="img" aria-label="Dibaca">
+                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                     </svg>
                   </div>
@@ -234,28 +234,28 @@
 
             {#if isSelf}
               {#if msgStatus === 'pending'}
-                <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Mengirim...">
+                <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Mengirim...">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
               {:else if msgStatus === 'sent'}
-                <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Terkirim">
+                <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Terkirim">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
               {:else if msgStatus === 'delivered'}
-                <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan" aria-label="Tersampaikan">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="inline-flex -space-x-2 opacity-70" role="img" aria-label="Tersampaikan">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>
               {:else if msgStatus === 'read'}
-                <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca" aria-label="Dibaca">
-                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="inline-flex -space-x-2 text-[#53bdeb]" role="img" aria-label="Dibaca">
+                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                   </svg>
-                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>

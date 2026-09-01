@@ -28,5 +28,26 @@ export default defineConfig({
 				changeOrigin: true
 			}
 		}
+	},
+
+	build: {
+		// Use esbuild for minification (built-in, fastest, ~290 KiB savings)
+		minify: 'esbuild',
+		// Aggressively tree-shake unused code
+		target: 'es2020',
+		// Reduce report overhead
+		reportCompressedSize: false,
+		rollupOptions: {
+			output: {
+				// Split vendor chunks so browsers cache them separately
+				manualChunks(id) {
+					if (id.includes('node_modules')) {
+						if (id.includes('svelte')) return 'svelte-vendor';
+						return 'vendor';
+					}
+				}
+			}
+		}
 	}
 });
+
