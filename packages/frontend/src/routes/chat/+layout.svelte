@@ -47,7 +47,7 @@
   }
 </script>
 
-<div class="flex h-screen h-[100dvh] max-h-[100dvh] overflow-hidden relative bg-[#efeae2] dark:bg-[#0b141a] {isResizing ? 'cursor-col-resize select-none pointer-events-auto' : ''}">
+<div class="flex h-full w-full max-h-full overflow-hidden relative bg-[#efeae2] dark:bg-[#0b141a] {isResizing ? 'cursor-col-resize select-none pointer-events-auto' : ''}">
   <!-- Desktop Resizable Sidebar -->
   <div
     class="hidden md:flex md:flex-shrink-0 h-full relative"
@@ -87,7 +87,7 @@
   {/if}
 
   <!-- Main Chat Content Area (Flexibly Adapts to Sidebar Width) -->
-  <div class="flex-1 flex flex-col min-w-0 h-full relative">
+  <div class="flex-1 flex flex-col min-w-0 h-full max-h-full overflow-hidden relative">
     {@render children()}
   </div>
 </div>

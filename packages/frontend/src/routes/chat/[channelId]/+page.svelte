@@ -107,9 +107,28 @@
     chatStore.messages.filter(m => m.isPinned)
   );
 
+  let viewportHeight = $state<number | null>(null);
+
   onMount(() => {
     chatStore.loadUsers();
     chatStore.loadChannels();
+
+    if (browser && window.visualViewport) {
+      const updateViewport = () => {
+        if (window.visualViewport) {
+          viewportHeight = window.visualViewport.height;
+          window.scrollTo(0, 0);
+        }
+      };
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+      updateViewport();
+
+      return () => {
+        window.visualViewport?.removeEventListener('resize', updateViewport);
+        window.visualViewport?.removeEventListener('scroll', updateViewport);
+      };
+    }
   });
 
   $effect(() => {
@@ -464,9 +483,9 @@
   }
 }} />
 
-<div class="flex flex-col h-full h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden bg-[#efeae2] dark:bg-[#0b141a] relative">
+<div class="flex flex-col h-full max-h-full min-h-0 overflow-hidden bg-[#efeae2] dark:bg-[#0b141a] relative" style={viewportHeight ? `height: ${viewportHeight}px; max-height: ${viewportHeight}px;` : "height: 100%;"}>
   <!-- WhatsApp Web Style Top Header -->
-  <header class="px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#d1d7db] dark:border-[#222d34] flex items-center justify-between z-10 select-none shadow-2xs shrink-0">
+  <header class="px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#d1d7db] dark:border-[#222d34] flex items-center justify-between z-20 select-none shadow-2xs shrink-0 sticky top-0">
     <div class="flex items-center space-x-3">
       <!-- Mobile Hamburger Button -->
       <button
@@ -664,7 +683,7 @@
   {/if}
 
   <!-- Floating WhatsApp Input Bar (Authentic WhatsApp Mobile & Web Floating Pill) -->
-  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-transparent">
+  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-[#f0f2f5]/90 dark:bg-[#202c33]/90 md:bg-transparent backdrop-blur-xs">
     <!-- Reply Quote Preview Floating Box -->
     {#if chatStore.replyingToMessage}
       <div class="max-w-4xl mx-auto mb-2 px-4 py-2 bg-white/95 dark:bg-[#202c33]/95 backdrop-blur-md rounded-2xl shadow-md border-l-4 border-[#00a884] flex items-center justify-between text-xs animate-fadeIn border border-black/5 dark:border-white/5">
@@ -825,6 +844,12 @@
           type="text"
           bind:value={inputText}
           oninput={handleInputChange}
+          onfocus={() => {
+            setTimeout(() => {
+              window.scrollTo(0, 0);
+              scrollToBottom(true);
+            }, 120);
+          }}
           placeholder="Ketik pesan"
           class="flex-1 bg-transparent text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] text-[15px] px-2.5 py-2 border-0 focus:ring-0 outline-none min-w-0"
           autocomplete="off"
