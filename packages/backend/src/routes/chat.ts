@@ -7,6 +7,7 @@ import { authMiddleware } from '../middleware/auth';
 import { getCacheJson, setCacheJson, delCacheKeys, invalidateCachePattern } from '../services/cache';
 import * as fs from 'fs';
 import * as path from 'path';
+import sharp from 'sharp';
 
 // In-memory active usernames per channel
 const channelUsers: Record<string, Map<string, number>> = {};
@@ -301,25 +302,49 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
   .post('/upload', async ({ body, error }) => {
     try {
       const file = body.file;
-      const extension = file.name.split('.').pop() || 'bin';
-      const filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.${extension}`;
-      
+      const isImage = file.type.startsWith('image/');
+
       const rootDir = process.env.MONOREPO_ROOT || '/app';
       const uploadDir = path.join(rootDir, 'packages/frontend/static/uploads');
-      
+
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
-      const filePath = path.join(uploadDir, filename);
       const bytes = await file.arrayBuffer();
-      fs.writeFileSync(filePath, Buffer.from(bytes));
+      const buffer = Buffer.from(bytes);
+
+      let filename: string;
+      let savedBuffer: Buffer;
+      let mimeType: string;
+      let fileSize: number;
+
+      if (isImage) {
+        // Convert image to WebP with max 1920px width, quality 82 for huge savings
+        filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.webp`;
+        savedBuffer = await sharp(buffer)
+          .resize({ width: 1920, withoutEnlargement: true })
+          .webp({ quality: 82, effort: 4 })
+          .toBuffer();
+        mimeType = 'image/webp';
+        fileSize = savedBuffer.length;
+      } else {
+        // Non-image files (PDF, video, audio, etc.) — save as-is
+        const extension = file.name.split('.').pop() || 'bin';
+        filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.${extension}`;
+        savedBuffer = buffer;
+        mimeType = file.type;
+        fileSize = file.size;
+      }
+
+      const filePath = path.join(uploadDir, filename);
+      fs.writeFileSync(filePath, savedBuffer);
 
       return {
         url: `/api/uploads/${filename}`,
-        name: file.name,
-        type: file.type,
-        size: file.size
+        name: isImage ? filename : file.name,
+        type: mimeType,
+        size: fileSize
       };
     } catch (e: any) {
       return error(500, e.message || 'Gagal mengupload file');
