@@ -6,6 +6,7 @@ import { chatRouter } from "./routes/chat";
 import { webhookRouter } from "./routes/webhook";
 import { authRouter } from "./routes/auth";
 import { adminRouter } from "./routes/admin";
+import { initDatabase } from "./db";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -16,6 +17,11 @@ const uploadDir = path.join(rootDir, 'packages/frontend/static/uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+// Initialize database schema and seeds on startup
+initDatabase().catch((err) => {
+  console.error("Database initialization failed:", err);
+});
 
 const app = new Elysia()
   .use(cors())
