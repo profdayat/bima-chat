@@ -376,11 +376,18 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       reactionsList = [];
     }
 
-    // Toggle reaction
-    const index = reactionsList.findIndex(r => r.emoji === body.emoji && r.username === body.username);
-    if (index > -1) {
-      reactionsList.splice(index, 1);
+    // WhatsApp Reaction Standard: 1 user = 1 reaction per message (Replace if different emoji, Toggle off if same)
+    const existingIndex = reactionsList.findIndex(r => r.username === body.username);
+    if (existingIndex > -1) {
+      if (reactionsList[existingIndex].emoji === body.emoji) {
+        // Toggle off / remove reaction
+        reactionsList.splice(existingIndex, 1);
+      } else {
+        // Replace with new reaction
+        reactionsList[existingIndex].emoji = body.emoji;
+      }
     } else {
+      // Add new reaction
       reactionsList.push({ emoji: body.emoji, username: body.username });
     }
 

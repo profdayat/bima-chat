@@ -395,6 +395,28 @@ export function createChatStore() {
 
   async function reactToMessage(messageId: string, emoji: string) {
     if (!activeChannelId) return;
+
+    // Optimistic update for instant WhatsApp-style reaction feedback
+    const chanMsgs = messages[activeChannelId] || [];
+    const msg = chanMsgs.find(m => m.id === messageId);
+    if (msg) {
+      const currentList = Array.isArray(msg.reactions) ? [...msg.reactions] : [];
+      const userIdx = currentList.findIndex(r => r.username === currentUsername);
+
+      if (userIdx > -1) {
+        if (currentList[userIdx].emoji === emoji) {
+          // Toggle off
+          currentList.splice(userIdx, 1);
+        } else {
+          // Replace
+          currentList[userIdx] = { emoji, username: currentUsername };
+        }
+      } else {
+        currentList.push({ emoji, username: currentUsername });
+      }
+      msg.reactions = currentList;
+    }
+
     try {
       const base = getApiBase();
       await fetch(`${base}/api/chat/react/${activeChannelId}`, {
