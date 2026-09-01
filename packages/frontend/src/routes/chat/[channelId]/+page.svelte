@@ -177,8 +177,11 @@
         }));
 
         chatStore.setMessages(id, adapted);
+        isLoadingHistory = false;
         await tick();
-        scrollToBottom(true);
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
 
         // 3. Persist to IndexedDB for next visit
         if (browser && adapted.length > 0) {
@@ -300,16 +303,18 @@
   });
 
   function scrollToBottom(force = false) {
-    setTimeout(() => {
-      if (messagesContainer) {
+    if (messagesContainer) {
+      if (force) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      } else {
         messagesContainer.scrollTo({
           top: messagesContainer.scrollHeight,
-          behavior: force ? 'auto' : 'smooth'
+          behavior: 'smooth'
         });
-        isScrolledUp = false;
-        newMessagesWhileScrolledUp = 0;
       }
-    }, 30);
+      isScrolledUp = false;
+      newMessagesWhileScrolledUp = 0;
+    }
   }
 
   function formatDateHeader(dateStr: string | undefined): string {

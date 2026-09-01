@@ -284,9 +284,16 @@
     <!-- 1. Channels Section -->
     {#if activeTab === 'all' || activeTab === 'channels'}
       {#if chatStore.isLoadingChannels}
-        <div class="p-6 text-center text-xs text-[#4b5563] dark:text-[#9ca3af] space-y-2">
-          <div class="animate-spin w-4 h-4 border-2 border-[#008069] border-t-transparent rounded-full mx-auto"></div>
-          <p>Memuat percakapan...</p>
+        <div class="divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60 animate-pulse" aria-busy="true" aria-label="Memuat daftar obrolan...">
+          {#each Array(4) as _}
+            <div class="w-full flex items-center gap-3 px-4 py-3 h-[72px]">
+              <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0"></div>
+              <div class="flex-1 space-y-2">
+                <div class="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <div class="h-3 w-40 bg-gray-200/80 dark:bg-gray-700/60 rounded"></div>
+              </div>
+            </div>
+          {/each}
         </div>
       {:else}
         {#each filteredChannels as channel (channel.id)}
