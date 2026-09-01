@@ -61,6 +61,18 @@ export function createChatStore() {
   let authToken = $state<string | null>(null);
   let guestNickname = $state('Staff RSUD');
   let eventSource: EventSource | null = null;
+  let reconnectTimer: any = null;
+  let heartbeatWatchdog: any = null;
+
+  function resetHeartbeatWatchdog(chId: string) {
+    if (heartbeatWatchdog) clearTimeout(heartbeatWatchdog);
+    heartbeatWatchdog = setTimeout(() => {
+      if (activeChannelId && browser) {
+        console.log('🔄 SSE heartbeat timeout, auto-reconnecting...');
+        connect(activeChannelId);
+      }
+    }, 45000);
+  }
   let typingTimeout: any = null;
 
   if (browser) {
@@ -564,8 +576,10 @@ export function createChatStore() {
 
   function connect(channelId: string) {
     if (!browser) return;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     if (eventSource) {
       eventSource.close();
+      eventSource = null;
     }
     
     activeChannelId = channelId;
@@ -580,6 +594,7 @@ export function createChatStore() {
     
     eventSource.onopen = () => {
       isConnected = true;
+      resetHeartbeatWatchdog(channelId);
     };
     
     eventSource.onmessage = (event) => {
@@ -736,10 +751,24 @@ export function createChatStore() {
     
     eventSource.onerror = () => {
       isConnected = false;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      // Auto-reconnect automatically without requiring manual page refresh
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (activeChannelId && browser) {
+          console.log('🔄 Reconnecting SSE for channel:', activeChannelId);
+          connect(activeChannelId);
+        }
+      }, 2000);
     };
   }
 
   function disconnect() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (heartbeatWatchdog) clearTimeout(heartbeatWatchdog);
     if (eventSource) {
       eventSource.close();
       eventSource = null;

@@ -683,7 +683,7 @@
   {/if}
 
   <!-- Floating WhatsApp Input Bar (Authentic WhatsApp Mobile & Web Floating Pill) -->
-  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-[#f0f2f5]/90 dark:bg-[#202c33]/90 md:bg-transparent backdrop-blur-xs">
+  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-transparent">
     <!-- Reply Quote Preview Floating Box -->
     {#if chatStore.replyingToMessage}
       <div class="max-w-4xl mx-auto mb-2 px-4 py-2 bg-white/95 dark:bg-[#202c33]/95 backdrop-blur-md rounded-2xl shadow-md border-l-4 border-[#00a884] flex items-center justify-between text-xs animate-fadeIn border border-black/5 dark:border-white/5">
@@ -788,27 +788,14 @@
       onsubmit={(e) => { e.preventDefault(); sendMessage(); }}
       class="flex items-center gap-2 max-w-4xl mx-auto w-full"
     >
-      <!-- Left Pill Capsule Container (Matches h-12 and rounded-full with send button) -->
+      <!-- Left Pill Capsule Container (Transparent surroundings like authentic WhatsApp) -->
       <div class="flex-1 bg-white dark:bg-[#1f2c34] rounded-full h-12 flex items-center px-3 shadow-md border border-black/5 dark:border-white/5 transition-all min-w-0">
-        <!-- Paperclip / Lampiran Button (Far Left matching user screenshot) -->
-        <button
-          type="button"
-          onclick={() => fileInput.click()}
-          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center"
-          title="Lampirkan berkas"
-          aria-label="Lampirkan berkas"
-        >
-          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-          </svg>
-        </button>
-
-        <!-- Emoji Smiley Button (Next to Paperclip matching user screenshot) -->
+        <!-- Emoji Smiley Button (Far Left like authentic WhatsApp) -->
         <button
           id="btn-toggle-emoji"
           type="button"
           onclick={() => (showEmojiPicker = !showEmojiPicker)}
-          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center ml-0.5"
+          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-1"
           title="Pilih emoji & reaksi"
           aria-label="Pilih emoji & reaksi"
         >
@@ -851,11 +838,24 @@
             }, 120);
           }}
           placeholder="Ketik pesan"
-          class="flex-1 bg-transparent text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] text-[15px] px-2.5 py-2 border-0 focus:ring-0 outline-none min-w-0"
+          class="flex-1 bg-transparent text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] text-[15px] px-1 py-2 border-0 focus:ring-0 outline-none min-w-0"
           autocomplete="off"
         />
 
-        <!-- Camera icon button (Right edge inside pill) -->
+        <!-- Paperclip / Lampiran Button (Right inside capsule like WhatsApp) -->
+        <button
+          type="button"
+          onclick={() => fileInput.click()}
+          class="p-1 text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition shrink-0 flex items-center justify-center mr-0.5"
+          title="Lampirkan berkas"
+          aria-label="Lampirkan berkas"
+        >
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+          </svg>
+        </button>
+
+        <!-- Camera icon button (Far Right inside capsule like WhatsApp) -->
         <button
           type="button"
           onclick={() => cameraInput ? cameraInput.click() : fileInput.click()}
