@@ -207,13 +207,25 @@ export function createChatStore() {
   }
 
   async function loadChannels() {
-    isLoadingChannels = true;
+    if (browser && channels.length === 0) {
+      const cached = localStorage.getItem('rsud_cached_channels');
+      if (cached) {
+        try {
+          channels = JSON.parse(cached);
+          isLoadingChannels = false;
+        } catch {}
+      }
+    }
+    isLoadingChannels = channels.length === 0;
     try {
       const base = getApiBase();
       const res = await fetch(`${base}/api/chat/channels`);
       if (res.ok) {
         const data = await res.json();
         channels = data;
+        if (browser) {
+          localStorage.setItem('rsud_cached_channels', JSON.stringify(data));
+        }
       }
     } catch (e) {
       console.error('Failed to load channels', e);
@@ -227,12 +239,24 @@ export function createChatStore() {
 
   async function loadUsers() {
     if (!browser) return;
+    if (usersList.length === 0) {
+      const cached = localStorage.getItem('rsud_cached_users');
+      if (cached) {
+        try {
+          usersList = JSON.parse(cached);
+        } catch {}
+      }
+    }
     isLoadingUsers = true;
     try {
       const base = getApiBase();
       const res = await fetch(`${base}/api/chat/users`);
       if (res.ok) {
-        usersList = await res.json();
+        const data = await res.json();
+        usersList = data;
+        if (browser) {
+          localStorage.setItem('rsud_cached_users', JSON.stringify(data));
+        }
       }
     } catch (e) {
       console.error('Failed to load users', e);

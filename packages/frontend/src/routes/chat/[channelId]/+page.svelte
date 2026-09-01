@@ -554,10 +554,10 @@
     </div>
   </header>
 
-  <!-- Pinned Message Interactive Docked Banner under Header -->
+  <!-- Pinned Message Interactive Docked Banner under Header (Absolute overlay for 0 CLS) -->
   {#if pinnedMessages.length > 0}
     {@const latestPinned = pinnedMessages[pinnedMessages.length - 1]}
-    <div class="px-4 py-2 bg-[#f0f2f5] dark:bg-[#182229] border-b border-[#d1d7db] dark:border-[#222d34] text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-2xs z-10 animate-fadeIn">
+    <div class="absolute top-[60px] inset-x-0 bg-[#f0f2f5]/95 dark:bg-[#182229]/95 backdrop-blur-md border-b border-[#d1d7db] dark:border-[#222d34] px-4 py-2 text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-md z-20 animate-fadeIn">
       <button
         type="button"
         onclick={() => jumpToMessage(latestPinned.id)}
