@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: packages/backend/develop.dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=development
+    volumes:
+      - ../packages/backend/src:/app/packages/backend/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  frontend:
+    build:
+      context: ../
+      dockerfile: packages/frontend/develop.dockerfile
+    ports:
+      - "8095:5173"
+    environment:
+      - APP_ENV=development
+    volumes:
+      - ../packages/frontend/src:/app/packages/frontend/src
+      - ../packages/frontend/static:/app/packages/frontend/static

@@ -1,0 +1,51 @@
+services:
+  backend:
+    env_file:
+      - ../.env
+    environment:
+      - APP_PORT=8080
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - chat-net
+
+  frontend:
+    networks:
+      - chat-net
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-bunchat}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bunchat_dev}
+      POSTGRES_DB: ${DB_NAME:-bunchat_dev}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bunchat}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - chat-net
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - chat-net
+
+networks:
+  chat-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,6 +1,6 @@
-# Monorepo Elysia Svelte
+# BIMA Chat — RSUD Bangil
 
-This is an example monorepo using [Elysia](https://github.com/elysiajs/elysia) for the backend and [SvelteKit](https://kit.svelte.dev/) for the frontend. It leverages [Eden](https://github.com/elysiajs/eden) to provide end-to-end type safety.
+Platform Realtime Multichannel Chatting Internal RSUD Bangil (BIMA Chat) menggunakan **Elysia.js (Bun)** untuk backend, **SvelteKit (Svelte 5)** untuk frontend PWA, **PostgreSQL + Drizzle ORM**, **Redis Pub/Sub & Caching**, serta **IndexedDB Local-First Architecture**.
 
 
 
@@ -18,8 +18,8 @@ Make sure you have the following installed:
 Then you'll need to clone the repository.
 
 ```bash
-git clone https://github.com/hansaskov/monorepo-elysia-svelte.git
-cd monorepo-elysia-svelte
+git clone git@github.com:profdayat/bima-chat.git
+cd bima-chat
 ```
 
 ### 3. Install the Dependencies

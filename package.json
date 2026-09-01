@@ -1,12 +1,14 @@
 {
-  "name": "monorepo-elysia-svelte",
+  "name": "bima-chat",
   "private": true,
   "workspaces": [
     "packages/backend",
     "packages/frontend"
   ],
   "scripts": {
-    "clean": "rm node_modules packages/backend/node_modules packages/frontend/node_modules bun.lockb packages/backend/bun.lockb packages/frontend/bun.lockb"
+    "dev": "bun run --filter '*' dev",
+    "build": "bun run --filter '*' build",
+    "clean": "rm -rf node_modules packages/backend/node_modules packages/frontend/node_modules bun.lockb packages/backend/bun.lockb packages/frontend/bun.lockb"
   },
   "trustedDependencies": [
     "@biomejs/biome",

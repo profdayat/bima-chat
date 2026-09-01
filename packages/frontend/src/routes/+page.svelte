@@ -1,34 +1,19 @@
 <script lang="ts">
-	import type { Treaty } from '@elysiajs/eden';
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
 
-	import { page } from '$app/stores';
-	import { treaty } from '@elysiajs/eden';
-	import type { App } from 'backend';
-
-	const api = treaty<App>($page.url.host).api;
-
-	let response: Promise<Treaty.TreatyResponse<{ 200: string }>>;
-	let name: string;
-
-	function onclick() {
-		response = api.hello.get({
-			query: { name }
-		});
-	}
+  onMount(() => {
+    goto('/chat');
+  });
 </script>
 
-<input type="text" bind:value={name} />
+<div class="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+  <div class="text-center">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">BIMA Chat — RSUD Bangil</h1>
+    <p class="text-gray-500 dark:text-gray-400 mb-4">Redirecting to chat...</p>
+    <a href="/chat" class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition font-medium">
+      Open Chat Room &rarr;
+    </a>
+  </div>
+</div>
 
-<button {onclick}> Send Requests </button>
-
-{#await response}
-	<p>Loading...</p>
-{:then { data, error }}
-	{#if error}
-		<p>Error response: {error.value}</p>
-	{:else}
-		<p>Yippy. I got the following result: {data}</p>
-	{/if}
-{:catch error}
-	<p>{error.message}</p>
-{/await}

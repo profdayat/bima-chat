@@ -21,6 +21,6 @@ WORKDIR /app/packages/frontend
 # Build your app
 RUN bun run build
 
-CMD ["bunx", "vite", "dev"]
-
 EXPOSE 5173
+
+CMD ["bun", "run", "dev", "--host", "0.0.0.0"]

@@ -1,0 +1,18 @@
+{
+  "name": "BIMA Chat - RSUD Bangil",
+  "short_name": "BIMA Chat",
+  "description": "Aplikasi Chatting Realtime Internal RSUD Bangil (BIMA Chat)",
+  "start_url": "/chat/general",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "categories": ["communication", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}

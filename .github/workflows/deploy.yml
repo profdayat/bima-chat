@@ -1,0 +1,31 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [production]
+    types: 
+      - completed
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy Blue/Green
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Fetch the latest commit SHA image
+          export IMAGE_TAG="sha-${GITHUB_SHA::7}"
+          
+          # Pull the image to ensure it's local
+          docker pull ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}
+          
+          # Execute the deployment script
+          chmod +x ./scripts/deploy-blue-green.sh
+          ./scripts/deploy-blue-green.sh

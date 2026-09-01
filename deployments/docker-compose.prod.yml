@@ -1,0 +1,52 @@
+services:
+  chat-nginx:
+    image: nginx:1.27-alpine
+    container_name: chat-nginx
+    ports:
+      - "8094:8094"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+    networks:
+      - chat-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8094/nginx-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  bun-chat-blue:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}
+    container_name: bun-chat-blue
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      - APP_ENV=production
+    ports:
+      - "8095:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chat-net
+
+  bun-chat-green:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}
+    container_name: bun-chat-green
+    restart: "no"
+    env_file:
+      - ../.env
+    environment:
+      - APP_ENV=production
+    ports:
+      - "8096:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chat-net
