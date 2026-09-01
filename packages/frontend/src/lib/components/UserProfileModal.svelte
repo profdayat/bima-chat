@@ -101,6 +101,10 @@
           <img
             src={avatarUrl.trim()}
             alt={displayName}
+            width="56"
+            height="56"
+            loading="lazy"
+            decoding="async"
             class="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-[#00a884] shrink-0"
             onerror={(e) => {
               const target = e.currentTarget as HTMLImageElement;

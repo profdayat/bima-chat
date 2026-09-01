@@ -482,7 +482,8 @@
 </script>
 
 <svelte:head>
-  <title>{channelDisplayName} — BIMA Chat</title>
+  <title>{channelDisplayName} | BIMA Chat RSUD Bangil</title>
+  <meta name="description" content="Ruang obrolan {channelDisplayName} - Platform Komunikasi Realtime RSUD Bangil" />
 </svelte:head>
 
 <svelte:window onclick={(e) => {
@@ -513,6 +514,10 @@
           <img
             src={dmTargetUser.avatarUrl}
             alt={channelDisplayName}
+            width="40"
+            height="40"
+            loading="lazy"
+            decoding="async"
             class="w-10 h-10 rounded-full object-cover shadow-xs shrink-0 select-none border border-black/10 dark:border-white/10"
           />
         {:else}
@@ -527,14 +532,14 @@
       {/if}
 
       <div class="min-w-0">
-        <h2 class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] flex items-center gap-1.5 leading-tight truncate">
+        <h1 class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] flex items-center gap-1.5 leading-tight truncate">
           <span>{channelDisplayName}</span>
           {#if isDirectMessage && dmTargetUser}
             <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#00a884]/20 text-[#00a884] dark:text-[#25d366]">
               {dmTargetUser.role.toUpperCase()}
             </span>
           {/if}
-        </h2>
+        </h1>
         <div class="text-[12px] text-[#667781] dark:text-[#8696a0] truncate">
           {#if isDirectMessage}
             <span class="text-[#00a884] dark:text-[#25d366] font-medium">Online</span>
@@ -790,6 +795,7 @@
             <button
               type="button"
               onclick={() => insertEmoji(emoji)}
+              aria-label="Emoji {emoji}"
               class="w-9 h-9 flex items-center justify-center text-xl hover:scale-125 active:scale-95 transition-transform rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
               title={emoji}
             >
@@ -830,6 +836,7 @@
           bind:this={fileInput}
           onchange={handleFileUpload}
           multiple
+          aria-label="Pilih berkas untuk diunggah"
           class="hidden"
         />
 
@@ -840,6 +847,7 @@
           onchange={handleFileUpload}
           accept="image/*"
           capture="environment"
+          aria-label="Ambil foto menggunakan kamera"
           class="hidden"
         />
 
@@ -848,6 +856,7 @@
           type="text"
           bind:value={inputText}
           oninput={handleInputChange}
+          aria-label="Ketik pesan"
           onfocus={() => {
             setTimeout(() => {
               window.scrollTo(0, 0);

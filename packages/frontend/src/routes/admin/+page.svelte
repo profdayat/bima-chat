@@ -138,7 +138,8 @@
 </script>
 
 <svelte:head>
-  <title>Admin Dashboard — BIMA Chat</title>
+  <title>Dashboard Admin | BIMA Chat RSUD Bangil</title>
+  <meta name="description" content="Dashboard administrasi dan manajemen pengguna BIMA Chat RSUD Bangil." />
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
@@ -388,6 +389,7 @@
                 type="text"
                 bind:value={userSearch}
                 placeholder="Cari user berdasarkan nama / role..."
+                aria-label="Cari user berdasarkan nama atau role"
                 class="w-full text-xs py-2 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-white"
               />
               <span class="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
@@ -513,6 +515,7 @@
                   type="text"
                   bind:value={newChannelName}
                   placeholder="contoh: poli-bedah atau humas-rsud"
+                  aria-label="Nama channel baru"
                   class="flex-1 text-xs py-2 px-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-white"
                   required
                 />

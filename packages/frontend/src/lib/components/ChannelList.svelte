@@ -83,6 +83,10 @@
         <img
           src={chatStore.authUser.avatarUrl}
           alt={chatStore.authUser?.displayName || chatStore.currentUsername}
+          width="36"
+          height="36"
+          loading="lazy"
+          decoding="async"
           class="w-9 h-9 rounded-full object-cover shadow-xs shrink-0 border border-black/10 dark:border-white/10"
         />
       {:else}
@@ -188,6 +192,7 @@
         type="text"
         bind:value={searchQuery}
         placeholder="Cari atau mulai obrolan baru"
+        aria-label="Cari atau mulai obrolan baru"
         class="w-full text-[13px] py-1.5 pl-9 pr-3 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg text-[#111b21] dark:text-[#d1d7db] placeholder-[#8696a0] border-0 focus:ring-0 outline-none"
       />
       <svg class="w-4 h-4 text-[#8696a0] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,8 +201,12 @@
     </div>
 
     <!-- WhatsApp Filter Chips -->
-    <div class="flex gap-1.5 px-0.5 overflow-x-auto select-none">
+    <div class="flex gap-1.5 px-0.5 overflow-x-auto select-none" role="tablist" aria-label="Filter obrolan">
       <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'all'}
+        aria-label="Tampilkan semua obrolan"
         onclick={() => (activeTab = 'all')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'all'
@@ -207,6 +216,10 @@
         Semua
       </button>
       <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'channels'}
+        aria-label="Tampilkan daftar channel"
         onclick={() => (activeTab = 'channels')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'channels'
@@ -216,6 +229,10 @@
         Channel ({filteredChannels.length})
       </button>
       <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'direct'}
+        aria-label="Tampilkan pesan pribadi"
         onclick={() => (activeTab = 'direct')}
         class="px-3 py-1 rounded-full text-[12px] font-semibold transition whitespace-nowrap
           {activeTab === 'direct'
@@ -325,6 +342,10 @@
                 <img
                   src={user.avatarUrl}
                   alt={user.displayName || user.username}
+                  width="48"
+                  height="48"
+                  loading="lazy"
+                  decoding="async"
                   class="w-12 h-12 rounded-full object-cover border border-black/5 dark:border-white/5"
                 />
               {:else}

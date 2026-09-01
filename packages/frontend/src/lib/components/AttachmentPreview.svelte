@@ -51,6 +51,7 @@
           <button
             type="button"
             onclick={() => openLightbox(file.url, file.name)}
+            aria-label="Lihat gambar {file.name}"
             class="block rounded-lg overflow-hidden w-full bg-black/5 dark:bg-black/20"
           >
             <img
@@ -67,7 +68,7 @@
             download={file.name}
             class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/60"
             title="Download"
-            aria-label="Download foto"
+            aria-label="Download foto {file.name}"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -79,7 +80,9 @@
         <a
           href={fileUrl}
           target="_blank"
+          rel="noopener noreferrer"
           download={file.name}
+          aria-label="Download berkas {file.name}"
           class="flex items-center gap-3 p-2.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition group text-left max-w-[280px]"
         >
           <div class="w-10 h-10 rounded-lg bg-[#00a884]/15 text-[#00a884] flex items-center justify-center shrink-0">

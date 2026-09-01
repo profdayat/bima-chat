@@ -4,6 +4,9 @@ import { saveMessagesToLocal, deleteMessageFromLocal, updateMessageInLocal } fro
 export interface Channel {
   id: string;
   name: string;
+  type?: string;
+  description?: string;
+  targetUser?: User;
   createdAt: string;
 }
 
@@ -13,9 +16,10 @@ export interface User {
   role: string;
   displayName?: string;
   avatarUrl?: string;
+  isActive?: string;
 }
 
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
+export type MessageStatus = 'pending' | 'sending' | 'sent' | 'delivered' | 'read';
 
 export interface ChatMessage {
   id: string;
@@ -29,7 +33,9 @@ export interface ChatMessage {
   sender: {
     id: string;
     username: string;
-  };
+    displayName?: string;
+    avatarUrl?: string;
+  } | any;
   timestamp: string;
   type?: string;
 }

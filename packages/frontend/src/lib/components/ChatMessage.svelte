@@ -110,7 +110,15 @@
         title={senderName}
       >
         {#if senderAvatar}
-          <img src={senderAvatar} alt={senderName} class="w-full h-full object-cover" />
+          <img
+            src={senderAvatar}
+            alt={senderName}
+            width="32"
+            height="32"
+            loading="lazy"
+            decoding="async"
+            class="w-full h-full object-cover"
+          />
         {:else}
           {senderName.slice(0, 2).toUpperCase()}
         {/if}
@@ -190,15 +198,15 @@
 
               {#if isSelf}
                 {#if msgStatus === 'pending'}
-                  <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Mengirim...">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 {:else if msgStatus === 'sent'}
-                  <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Terkirim">
+                  <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Terkirim">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 {:else if msgStatus === 'delivered'}
-                  <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan">
+                  <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan" aria-label="Tersampaikan">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
@@ -207,7 +215,7 @@
                     </svg>
                   </div>
                 {:else if msgStatus === 'read'}
-                  <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca">
+                  <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca" aria-label="Dibaca">
                     <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                     </svg>
@@ -226,15 +234,15 @@
 
             {#if isSelf}
               {#if msgStatus === 'pending'}
-                <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Mengirim...">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
               {:else if msgStatus === 'sent'}
-                <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Terkirim">
+                <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Terkirim">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
               {:else if msgStatus === 'delivered'}
-                <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan">
+                <div class="inline-flex -space-x-2 opacity-70" title="Tersampaikan" aria-label="Tersampaikan">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
@@ -243,7 +251,7 @@
                   </svg>
                 </div>
               {:else if msgStatus === 'read'}
-                <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca">
+                <div class="inline-flex -space-x-2 text-[#53bdeb]" title="Dibaca" aria-label="Dibaca">
                   <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                   </svg>
@@ -318,7 +326,9 @@
           <div class="py-1 text-[13.5px]">
             <!-- 1. Reply -->
             <button
+              type="button"
               onclick={startReply}
+              aria-label="Balas pesan"
               class="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] transition text-left"
             >
               <svg class="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,7 +340,9 @@
             <!-- 2. Reply Privately (if from other user) -->
             {#if !isSelf && message.sender?.id}
               <button
+                type="button"
                 onclick={handleReplyPrivately}
+                aria-label="Balas secara pribadi"
                 class="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] transition text-left"
               >
                 <svg class="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -343,7 +355,9 @@
             <!-- 3. Copy Text -->
             {#if message.text}
               <button
+                type="button"
                 onclick={copyMessageText}
+                aria-label="Salin teks pesan"
                 class="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] transition text-left"
               >
                 <svg class="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,7 +369,9 @@
 
             <!-- 4. Pin / Unpin -->
             <button
+              type="button"
               onclick={togglePin}
+              aria-label={message.isPinned ? 'Lepas sematan' : 'Sematkan pesan'}
               class="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] transition text-left"
             >
               <svg class="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -368,7 +384,9 @@
             {#if isSelf || chatStore.authUser?.role === 'admin'}
               <div class="border-t border-black/5 dark:border-white/5 my-1"></div>
               <button
+                type="button"
                 onclick={handleDelete}
+                aria-label="Hapus pesan"
                 class="w-full flex items-center gap-3 px-4 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 transition text-left"
               >
                 <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
