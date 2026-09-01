@@ -536,25 +536,63 @@
       </div>
     </div>
 
-    <!-- Live SSE Status Indicator (Fixed width pill to prevent header layout shift) -->
-    <div class="flex items-center gap-2 shrink-0 ml-2">
-      <div class="flex items-center justify-center min-w-[125px] px-2.5 py-1 rounded-full text-xs font-medium border
-        {chatStore.isConnected 
-          ? 'bg-emerald-500/10 text-[#008069] dark:text-[#25d366] border-[#008069]/30' 
-          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
-      >
-        <span class="flex h-2 w-2 relative mr-1.5">
-          {#if chatStore.isConnected}
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069]"></span>
-          {:else}
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-          {/if}
-        </span>
-        <span class="text-[11px] font-semibold">{chatStore.isConnected ? 'Terhubung' : 'Menghubungkan...'}</span>
-      </div>
+    <!-- Live SSE Status Indicator -->
+    <div class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ml-2 border transition-colors
+      {chatStore.isConnected 
+        ? 'bg-emerald-500/10 text-[#008069] dark:text-[#25d366] border-[#008069]/30' 
+        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
+    >
+      <span class="relative flex h-2 w-2">
+        {#if chatStore.isConnected}
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069] dark:bg-[#25d366]"></span>
+        {:else}
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+        {/if}
+      </span>
+      <span class="text-[11px] leading-none">{chatStore.isConnected ? 'Terhubung' : 'Menghubungkan...'}</span>
     </div>
   </header>
+
+  <!-- Pinned Message Interactive Docked Banner under Header -->
+  {#if pinnedMessages.length > 0}
+    {@const latestPinned = pinnedMessages[pinnedMessages.length - 1]}
+    <div class="px-4 py-2 bg-[#f0f2f5] dark:bg-[#182229] border-b border-[#d1d7db] dark:border-[#222d34] text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-2xs z-10 animate-fadeIn">
+      <button
+        type="button"
+        onclick={() => jumpToMessage(latestPinned.id)}
+        class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition cursor-pointer"
+        title="Klik untuk loncat ke pesan yang disematkan"
+      >
+        <span class="text-amber-500 font-bold text-sm shrink-0">📌</span>
+        <div class="min-w-0 truncate">
+          <span class="font-bold text-[#008069] dark:text-[#25d366] mr-1">
+            {latestPinned.sender?.username || 'Pesan Disematkan'}:
+          </span>
+          <span class="text-[#4b5563] dark:text-[#9ca3af] truncate">
+            "{latestPinned.text}"
+          </span>
+        </div>
+      </button>
+
+      <div class="flex items-center gap-2 shrink-0 ml-2">
+        {#if pinnedMessages.length > 1}
+          <span class="text-[10px] bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-full font-bold text-[#54656f] dark:text-[#8696a0]">
+            {pinnedMessages.length} Pinned
+          </span>
+        {/if}
+        <button
+          type="button"
+          onclick={() => chatStore.togglePinMessage(latestPinned.id, false)}
+          class="p-1 text-[#8696a0] hover:text-rose-500 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition"
+          title="Lepas sematan (Unpin)"
+          aria-label="Lepas sematan"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Messages Area with WhatsApp Doodle Wallpaper (Clean full width) -->
   <main
@@ -562,45 +600,6 @@
     onscroll={handleScroll}
     class="flex-1 overflow-y-auto px-3 md:px-5 py-3 relative min-h-0 wa-chat-wallpaper"
   >
-    <!-- Pinned Message Interactive Banner inside main (Prevents CLS on main viewport) -->
-    {#if pinnedMessages.length > 0}
-      {@const latestPinned = pinnedMessages[pinnedMessages.length - 1]}
-      <div class="max-w-4xl mx-auto mb-3 px-4 py-2 bg-white/95 dark:bg-[#182229]/95 backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-md animate-fadeIn">
-        <button
-          type="button"
-          onclick={() => jumpToMessage(latestPinned.id)}
-          class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition cursor-pointer"
-          title="Klik untuk loncat ke pesan yang disematkan"
-        >
-          <span class="text-amber-500 font-bold text-sm shrink-0">📌</span>
-          <div class="min-w-0 truncate">
-            <span class="font-bold text-[#008069] dark:text-[#25d366] mr-1">
-              {latestPinned.sender?.username || 'Pesan Disematkan'}:
-            </span>
-            <span class="text-[#4b5563] dark:text-[#9ca3af] truncate">
-              "{latestPinned.text}"
-            </span>
-          </div>
-        </button>
-
-        <div class="flex items-center gap-2 shrink-0 ml-2">
-          {#if pinnedMessages.length > 1}
-            <span class="text-[10px] bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-full font-bold text-[#54656f] dark:text-[#8696a0]">
-              {pinnedMessages.length} Pinned
-            </span>
-          {/if}
-          <button
-            type="button"
-            onclick={() => chatStore.togglePinMessage(latestPinned.id, false)}
-            class="p-1 text-[#8696a0] hover:text-rose-500 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition"
-            title="Lepas sematan (Unpin)"
-            aria-label="Lepas sematan"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-    {/if}
     {#if isLoadingHistory}
       <ChatSkeleton />
     {:else}
