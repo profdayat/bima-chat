@@ -67,8 +67,8 @@ $COMPOSE up -d chat-nginx
 
 # 5. Switch upstream Nginx ke environment baru (hot-reload, ZERO DOWNTIME)
 echo "🔄 Switching Nginx upstream traffic to $IDLE_ENV..."
-sed -i "s/server bima-chat-backend-$ACTIVE_ENV:8080/server bima-chat-backend-$IDLE_ENV:8080/g" "$NGINX_CONF"
-sed -i "s/server bima-chat-frontend-$ACTIVE_ENV:5173/server bima-chat-frontend-$IDLE_ENV:5173/g" "$NGINX_CONF"
+sed -i -E "s/server bima-chat-backend-(blue|green):8080/server bima-chat-backend-$IDLE_ENV:8080/g" "$NGINX_CONF"
+sed -i -E "s/server bima-chat-frontend-(blue|green):5173/server bima-chat-frontend-$IDLE_ENV:5173/g" "$NGINX_CONF"
 
 echo "⚡ Hot-reloading Nginx (Zero Downtime)..."
 docker exec bima-chat-nginx nginx -s reload 2>/dev/null || $COMPOSE restart chat-nginx

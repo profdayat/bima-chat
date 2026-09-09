@@ -6,6 +6,7 @@ import { chatRouter } from "./routes/chat";
 import { webhookRouter } from "./routes/webhook";
 import { authRouter } from "./routes/auth";
 import { adminRouter } from "./routes/admin";
+import { settingsRouter } from "./routes/settings";
 import { initDatabase } from "./db";
 import * as path from "path";
 import * as fs from "fs";
@@ -63,7 +64,8 @@ const app = new Elysia()
             { name: 'Auth', description: 'Authentication endpoints' },
             { name: 'Chat', description: 'SSE realtime chat endpoints' },
             { name: 'Webhooks', description: 'Webhook integration endpoints' },
-            { name: 'Admin', description: 'Admin management endpoints' }
+            { name: 'Admin', description: 'Admin management endpoints' },
+            { name: 'Settings', description: 'System settings endpoints' }
           ]
         }
       }))
@@ -71,7 +73,9 @@ const app = new Elysia()
       .use(chatRouter)
       .use(webhookRouter)
       .use(adminRouter)
+      .use(settingsRouter)
   );
+
 
 app.listen(process.env.APP_PORT ?? 8080, () => {
   console.log(`🦊 Server started at ${app.server?.url.origin}`);

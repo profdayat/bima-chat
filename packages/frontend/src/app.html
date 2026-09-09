@@ -18,6 +18,16 @@
 		<meta property="og:title" content="BIMA Chat - RSUD Bangil" />
 		<meta property="og:description" content="Platform komunikasi multichannel realtime RSUD Bangil." />
 		<meta property="og:image" content="%sveltekit.assets%/favicon.png" />
+		<script>
+			try {
+				const d = localStorage.getItem('rsud_chat_dark');
+				if (d === 'true' || (!d && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+					document.documentElement.classList.add('dark');
+				} else {
+					document.documentElement.classList.remove('dark');
+				}
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body class="h-full w-full overflow-hidden bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white antialiased" data-sveltekit-preload-data="hover">

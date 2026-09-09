@@ -1,32 +1,99 @@
+name: bima-chat-dev
+
 services:
   backend:
     build:
       context: ../
       dockerfile: packages/backend/develop.dockerfile
+    container_name: bima-chat-dev-backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
+    env_file:
+      - ../.env
     environment:
+      - APP_PORT=8080
       - APP_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-bimachat_user}
+      - DB_PASSWORD=${DB_PASSWORD:-bima_rsud_bangil_sec2026_db}
+      - DB_NAME=${DB_NAME:-bima_chat_db}
+      - REDIS_URL=redis://redis:6379
+      - MONOREPO_ROOT=/app
     volumes:
       - ../packages/backend/src:/app/packages/backend/src
+      - uploads-dev-data:/app/packages/frontend/static/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  postgres:
-    ports:
-      - "5432:5432"
+    networks:
+      - chat-dev-net
 
   frontend:
     build:
       context: ../
       dockerfile: packages/frontend/develop.dockerfile
+    container_name: bima-chat-dev-frontend
+    restart: unless-stopped
     ports:
       - "8095:5173"
+    env_file:
+      - ../.env
     environment:
       - APP_ENV=development
+      - BACKEND_INTERNAL_URL=http://backend:8080
     volumes:
       - ../packages/frontend/src:/app/packages/frontend/src
       - ../packages/frontend/static:/app/packages/frontend/static
+      - uploads-dev-data:/app/packages/frontend/static/uploads
+    depends_on:
+      - backend
+    networks:
+      - chat-dev-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: bima-chat-dev-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-bimachat_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bima_rsud_bangil_sec2026_db}
+      POSTGRES_DB: ${DB_NAME:-bima_chat_db}
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bimachat_user} -d ${DB_NAME:-bima_chat_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - chat-dev-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: bima-chat-dev-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - chat-dev-net
+
+networks:
+  chat-dev-net:
+    name: bima-chat-dev-net
+    driver: bridge
+
+volumes:
+  postgres-dev-data:
+    name: bima-chat-dev_postgres-data
+  uploads-dev-data:
+    name: bima-chat-dev_uploads-data

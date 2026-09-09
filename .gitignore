@@ -29,6 +29,8 @@ scratch/
 tmp/
 temp/
 *.tmp
+backups/
+*.sql
 
 # Logs
 *.log

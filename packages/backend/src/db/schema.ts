@@ -45,6 +45,12 @@ export const webhookEndpoints = pgTable('webhook_endpoints', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const systemSettings = pgTable('system_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const messagesRelations = relations(messages, ({ one }) => ({
   sender: one(users, {
     fields: [messages.senderId],
@@ -55,3 +61,4 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     references: [channels.id],
   }),
 }));
+

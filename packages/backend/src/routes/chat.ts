@@ -7,7 +7,19 @@ import { authMiddleware } from '../middleware/auth';
 import { getCacheJson, setCacheJson, delCacheKeys, invalidateCachePattern } from '../services/cache';
 import * as fs from 'fs';
 import * as path from 'path';
-import sharp from 'sharp';
+// sharp is loaded lazily so the server doesn't crash if the native binary
+// is not yet compiled inside the Docker container (e.g. first run before rebuild)
+let _sharp: any = null;
+async function getSharp() {
+  if (_sharp) return _sharp;
+  try {
+    _sharp = (await import('sharp')).default;
+  } catch {
+    console.warn('[upload] sharp not available, falling back to raw save');
+    _sharp = null;
+  }
+  return _sharp;
+}
 
 // In-memory active usernames per channel
 const channelUsers: Record<string, Map<string, number>> = {};
@@ -322,12 +334,21 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       if (isImage) {
         // Auto-orient based on EXIF camera orientation metadata, convert to WebP with max 1920px width
         filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.webp`;
-        savedBuffer = await sharp(buffer)
-          .rotate()
-          .resize({ width: 1920, withoutEnlargement: true })
-          .webp({ quality: 82, effort: 4 })
-          .toBuffer();
-        mimeType = 'image/webp';
+        const sharpLib = await getSharp();
+        if (sharpLib) {
+          savedBuffer = await sharpLib(buffer)
+            .rotate()
+            .resize({ width: 1920, withoutEnlargement: true })
+            .webp({ quality: 82, effort: 4 })
+            .toBuffer();
+          mimeType = 'image/webp';
+        } else {
+          // sharp unavailable: save original image as-is (no conversion)
+          const extension = file.name.split('.').pop() || 'jpg';
+          filename = `file_${Date.now()}_${Math.floor(Math.random() * 10000)}.${extension}`;
+          savedBuffer = buffer;
+          mimeType = file.type;
+        }
         fileSize = savedBuffer.length;
       } else {
         // Non-image files (PDF, video, audio, etc.) — save as-is

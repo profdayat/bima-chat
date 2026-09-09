@@ -107,4 +107,39 @@ export const adminRouter = new Elysia({ prefix: '/admin', detail: { tags: ['Admi
       set.status = 400;
       return { success: false, message: e.message || 'Gagal menghapus channel' };
     }
+  })
+
+  // Get system settings
+  .get('/settings', async () => {
+    const { getSystemSettings } = await import('../services/settings');
+    const settings = await getSystemSettings();
+    return {
+      success: true,
+      settings
+    };
+  })
+
+  // Update system settings
+  .put('/settings', async ({ body, set }) => {
+    try {
+      const { updateSystemSettings } = await import('../services/settings');
+      const updated = await updateSystemSettings({
+        allowGuest: body.allowGuest,
+        allowRegistration: body.allowRegistration
+      });
+      return {
+        success: true,
+        message: 'Pengaturan sistem berhasil diperbarui.',
+        settings: updated
+      };
+    } catch (e: any) {
+      set.status = 400;
+      return { success: false, message: e.message || 'Gagal memperbarui pengaturan sistem' };
+    }
+  }, {
+    body: t.Object({
+      allowGuest: t.Optional(t.Boolean()),
+      allowRegistration: t.Optional(t.Boolean())
+    })
   });
+

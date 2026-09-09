@@ -54,6 +54,10 @@ export function createChatStore() {
   let channels = $state<Channel[]>([]);
   let isLoadingChannels = $state(false);
   
+  // System settings state
+  let systemSettings = $state({ allowGuest: true, allowRegistration: true });
+  let isLoadingSettings = $state(false);
+
   // Gaps state
   let replyingToMessage = $state<ChatMessage | null>(null);
 
@@ -125,9 +129,15 @@ export function createChatStore() {
         body: JSON.stringify({ username, password })
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Fallback if server returned plain text or html error
+      }
+
       if (!res.ok) {
-        return { success: false, error: data.message || 'Login gagal, periksa username/password' };
+        return { success: false, error: data?.message || 'Login gagal, periksa username/password' };
       }
 
       authToken = data.token;
@@ -151,9 +161,15 @@ export function createChatStore() {
         body: JSON.stringify({ username, password })
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Fallback if server returned plain text or html error
+      }
+
       if (!res.ok) {
-        return { success: false, error: data.message || 'Registrasi gagal, username mungkin sudah digunakan' };
+        return { success: false, error: data?.message || 'Registrasi gagal, username mungkin sudah digunakan' };
       }
 
       authToken = data.token;
@@ -231,6 +247,25 @@ export function createChatStore() {
       console.error('Failed to load channels', e);
     } finally {
       isLoadingChannels = false;
+    }
+  }
+
+  async function loadSystemSettings() {
+    isLoadingSettings = true;
+    try {
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/settings/public`);
+      if (res.ok) {
+        const data = await res.json();
+        systemSettings = {
+          allowGuest: data.allowGuest !== false,
+          allowRegistration: data.allowRegistration !== false
+        };
+      }
+    } catch (e) {
+      console.error('Failed to load system settings', e);
+    } finally {
+      isLoadingSettings = false;
     }
   }
 
@@ -935,6 +970,13 @@ export function createChatStore() {
     get isSoundEnabled() {
       return isSoundEnabled;
     },
+    get systemSettings() {
+      return systemSettings;
+    },
+    get isLoadingSettings() {
+      return isLoadingSettings;
+    },
+    loadSystemSettings,
     toggleSound,
     playIncomingNotificationSound,
     fetchChannelInfo,

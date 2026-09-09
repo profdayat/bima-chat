@@ -54,11 +54,20 @@ export const authRouter = new Elysia({ prefix: '/auth', detail: { tags: ['Auth']
   .post('/register', async ({ body, jwt, set }) => {
     const { username, password } = body;
 
+    // Check system settings: Is self-registration allowed?
+    const { getSystemSettings } = await import('../services/settings');
+    const settings = await getSystemSettings();
+    
+    // First user is always allowed to register as initial admin
+    const existingUsers = await db.select().from(schema.users).limit(1);
+    if (existingUsers.length > 0 && !settings.allowRegistration) {
+      set.status = 403;
+      return { success: false, message: 'Pendaftaran akun baru saat ini dinonaktifkan oleh administrator.' };
+    }
+
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // First user becomes admin automatically
-    const existingUsers = await db.select().from(schema.users).limit(1);
     const role = existingUsers.length === 0 ? 'admin' : 'staff';
 
     try {

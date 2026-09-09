@@ -67,6 +67,40 @@ export async function initDatabase() {
       );
     `;
 
+    // Create system_settings table
+    await client`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `;
+
+    // Ensure PRIMARY KEY constraint exists on old tables that might lack it
+    // (idempotent: only runs if constraint is missing)
+    await client`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'system_settings_pkey'
+            AND conrelid = 'system_settings'::regclass
+        ) THEN
+          ALTER TABLE system_settings ADD PRIMARY KEY (key);
+        END IF;
+      EXCEPTION WHEN others THEN
+        NULL; -- ignore if already exists or table has rows
+      END
+      $$;
+    `;
+
+    // Seed default system settings (safe upsert)
+    await client`
+      INSERT INTO system_settings (key, value)
+      SELECT * FROM (VALUES ('allow_guest', 'true'), ('allow_registration', 'true')) AS v(key, value)
+      WHERE NOT EXISTS (SELECT 1 FROM system_settings WHERE system_settings.key = v.key);
+    `;
+
     // Seed default admin if no users exist
     const userCount = await client`SELECT count(*) as count FROM users`;
     if (parseInt(userCount[0].count) === 0) {

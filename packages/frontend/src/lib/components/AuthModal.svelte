@@ -50,45 +50,51 @@
     {/if}
 
     <div>
-      <label for="authUsername" class="block text-xs font-semibold text-[#54656f] dark:text-[#8696a0] mb-1">Username</label>
+      <label for="authUsername" class="block text-xs font-semibold text-[#4b5563] dark:text-[#9ca3af] mb-1">Username</label>
       <input
         id="authUsername"
         type="text"
         bind:value={username}
         placeholder="contoh: dr_dayat"
         required
-        class="w-full text-sm py-2.5 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none"
+        class="w-full text-sm py-2.5 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none"
       />
     </div>
 
     <div>
-      <label for="authPassword" class="block text-xs font-semibold text-[#54656f] dark:text-[#8696a0] mb-1">Password</label>
+      <label for="authPassword" class="block text-xs font-semibold text-[#4b5563] dark:text-[#9ca3af] mb-1">Password</label>
       <input
         id="authPassword"
         type="password"
         bind:value={password}
         placeholder="Minimal 6 karakter"
         required
-        class="w-full text-sm py-2.5 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#00a884] text-[#111b21] dark:text-[#e9edef] outline-none"
+        class="w-full text-sm py-2.5 px-3 bg-[#f0f2f5] dark:bg-[#2a3942] border border-black/10 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-[#008069] text-[#111b21] dark:text-[#e9edef] outline-none"
       />
     </div>
 
     <button
       type="submit"
       disabled={!username.trim() || !password.trim() || isSubmitting}
-      class="w-full py-2.5 bg-[#00a884] hover:bg-[#00a884]/90 text-white font-semibold text-sm rounded-xl transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+      class="w-full py-2.5 bg-[#008069] hover:bg-[#007a60] text-white font-semibold text-sm rounded-xl transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
     >
       {isSubmitting ? 'Memproses...' : isRegister ? 'Daftar Sekarang' : 'Masuk'}
     </button>
 
-    <div class="text-center pt-1">
-      <button
-        type="button"
-        onclick={toggleMode}
-        class="text-xs text-[#00a884] dark:text-[#25d366] hover:underline font-medium cursor-pointer"
-      >
-        {isRegister ? 'Sudah punya akun? Masuk di sini' : 'Belum punya akun? Buat akun baru'}
-      </button>
-    </div>
+    {#if chatStore.systemSettings.allowRegistration || isRegister}
+      <div class="text-center pt-1">
+        <button
+          type="button"
+          onclick={toggleMode}
+          class="text-xs text-[#008069] dark:text-[#25d366] hover:underline font-medium cursor-pointer"
+        >
+          {isRegister ? 'Sudah punya akun? Masuk di sini' : 'Belum punya akun? Buat akun baru'}
+        </button>
+      </div>
+    {:else}
+      <div class="text-center pt-1 text-[11px] text-[#4b5563] dark:text-[#9ca3af] italic">
+        Pendaftaran mandiri dinonaktifkan oleh administrator.
+      </div>
+    {/if}
   </form>
 </Modal>
