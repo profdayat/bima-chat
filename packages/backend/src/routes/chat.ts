@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { db } from '../db';
 import * as schema from '../db/schema';
 import { eq, desc, inArray, and, lt, ne, or, like } from 'drizzle-orm';
-import { channels as activeChannels, publishToChannel } from '../services/channel-manager';
+import { channels as activeChannels, publishToChannel, publishToAll } from '../services/channel-manager';
 import { authMiddleware } from '../middleware/auth';
 import { getCacheJson, setCacheJson, delCacheKeys, invalidateCachePattern } from '../services/cache';
 import * as fs from 'fs';
@@ -21,8 +21,9 @@ async function getSharp() {
   return _sharp;
 }
 
-// In-memory active usernames per channel
+// In-memory active usernames per channel and globally
 const channelUsers: Record<string, Map<string, number>> = {};
+const globalActiveUsers: Map<string, number> = new Map();
 
 async function resolveChannel(idOrName: string, currentUsernameOrId?: string) {
   const cacheKey = `cache:chan_resolve:${idOrName}:${currentUsernameOrId || 'anon'}`;
@@ -151,7 +152,7 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       start(controller) {
         const encoder = new TextEncoder();
         
-        // Track presence
+        // Track presence per channel
         if (!channelUsers[resolvedId]) {
           channelUsers[resolvedId] = new Map();
         }
@@ -160,13 +161,27 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
 
         const onlineUsers = Array.from(channelUsers[resolvedId].keys());
 
+        // Track global user presence
+        const globalCount = globalActiveUsers.get(clientUsername) || 0;
+        globalActiveUsers.set(clientUsername, globalCount + 1);
+        if (globalCount === 0) {
+          publishToAll({
+            type: 'user_presence',
+            username: clientUsername,
+            isOnline: true
+          });
+        }
+
+        const globalOnlineList = Array.from(globalActiveUsers.keys());
+
         // Initial connected event
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
           type: 'connected', 
           channelId: resolvedId, 
           channelName: channel.name,
           onlineCount: onlineUsers.length,
-          onlineUsers
+          onlineUsers,
+          globalOnlineUsers: globalOnlineList
         })}\n\n`));
 
         // Broadcast presence update
@@ -174,7 +189,8 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
           type: 'presence',
           channelId: resolvedId,
           onlineCount: onlineUsers.length,
-          onlineUsers
+          onlineUsers,
+          globalOnlineUsers: globalOnlineList
         });
 
         if (!activeChannels[resolvedId]) {
@@ -221,6 +237,23 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
             onlineCount: remainingUsers.length,
             onlineUsers: remainingUsers
           });
+        }
+
+        // Global user presence disconnect
+        const curGlobalCount = globalActiveUsers.get(clientUsername) || 1;
+        if (curGlobalCount <= 1) {
+          globalActiveUsers.delete(clientUsername);
+          publishToAll({
+            type: 'user_presence',
+            username: clientUsername,
+            isOnline: false
+          });
+        } else {
+          globalActiveUsers.set(clientUsername, curGlobalCount - 1);
+        }
+
+        if (!channelUsers[resolvedId] || channelUsers[resolvedId].size === 0) {
+          delete channelUsers[resolvedId];
         }
 
         if (activeChannels[resolvedId]?.size === 0) {
@@ -691,19 +724,41 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
         orderBy: (m, { desc }) => [desc(m.createdAt)]
       });
 
+      let parsedAttachments: any = null;
+      if (lastMsg?.attachments) {
+        try {
+          parsedAttachments = JSON.parse(lastMsg.attachments);
+        } catch {}
+      }
+
       result.push({
         ...dm,
         targetUser,
         lastMessage: lastMsg ? {
           text: lastMsg.content,
+          createdAt: lastMsg.createdAt,
           timestamp: lastMsg.createdAt,
-          senderName: lastMsg.senderName
+          senderName: lastMsg.senderName || 'Staff RSUD',
+          attachments: parsedAttachments
         } : null
       });
     }
 
-    await setCacheJson(cacheKey, result, 120); // 2 mins cache
+    result.sort((a, b) => {
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+      return timeB - timeA;
+    });
+
+    await setCacheJson(cacheKey, result, 60); // 1 min cache
     return result;
+  })
+
+  // Get active online users globally
+  .get('/presence', () => {
+    return {
+      onlineUsers: Array.from(globalActiveUsers.keys())
+    };
   })
 
   // List public channels with last message preview (Cached in Redis)

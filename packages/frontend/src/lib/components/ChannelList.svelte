@@ -15,15 +15,31 @@
     chatStore.loadUsers();
   });
 
-  let filteredChannels = $derived(
-    chatStore.channels.filter((c: Channel) =>
-      c.type !== 'dm' && c.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  // Filtered unified active conversations (Channels + DMs)
+  let activeConversations = $derived.by(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return chatStore.channels.filter((c: Channel) => {
+      if (activeTab === 'channels' && c.type === 'dm') return false;
+      if (activeTab === 'direct' && c.type !== 'dm') return false;
+      if (!q) return true;
 
+      if (c.type === 'dm') {
+        const name = c.targetUser?.displayName || c.targetUser?.username || '';
+        const role = c.targetUser?.role || '';
+        return name.toLowerCase().includes(q) || role.toLowerCase().includes(q);
+      }
+      return c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+    });
+  });
+
+  let publicChannelCount = $derived(chatStore.channels.filter(c => c.type !== 'dm').length);
+  let directChatCount = $derived(chatStore.channels.filter(c => c.type === 'dm').length);
+
+  // Staff users list (for starting new DMs)
   let filteredStaffUsers = $derived(
     chatStore.usersList.filter((u: User) =>
       u.id !== chatStore.authUser?.id &&
+      u.username !== chatStore.currentUsername &&
       ((u.displayName || u.username || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
        (u.role || '').toLowerCase().includes(searchQuery.toLowerCase()))
     )
@@ -211,7 +227,7 @@
             ? 'bg-[#008069] text-white'
             : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#667781] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
       >
-        Channel ({filteredChannels.length})
+        Channel ({publicChannelCount})
       </button>
       <button
         type="button"
@@ -223,7 +239,7 @@
             ? 'bg-[#008069] text-white'
             : 'bg-[#f0f2f5] dark:bg-[#202c33] text-[#667781] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]'}"
       >
-        Pribadi / Staf ({filteredStaffUsers.length})
+        Pribadi / Staf ({directChatCount})
       </button>
     </div>
 
@@ -265,88 +281,120 @@
 
   <!-- WhatsApp Chat List Items -->
   <div class="flex-1 overflow-y-auto divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60">
-    <!-- 1. Channels Section -->
-    {#if activeTab === 'all' || activeTab === 'channels'}
-      {#if chatStore.isLoadingChannels}
-        <div class="divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60 animate-pulse" aria-busy="true" aria-label="Memuat daftar obrolan...">
-          {#each Array(4) as _}
-            <div class="w-full flex items-center gap-3 px-4 py-3 h-[72px]">
-              <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0"></div>
-              <div class="flex-1 space-y-2">
-                <div class="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                <div class="h-3 w-40 bg-gray-200/80 dark:bg-gray-700/60 rounded"></div>
-              </div>
+    {#if chatStore.isLoadingChannels}
+      <div class="divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60 animate-pulse" aria-busy="true" aria-label="Memuat daftar obrolan...">
+        {#each Array(4) as _}
+          <div class="w-full flex items-center gap-3 px-4 py-3 h-[72px]">
+            <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div class="h-3 w-40 bg-gray-200/80 dark:bg-gray-700/60 rounded"></div>
             </div>
-          {/each}
-        </div>
-      {:else}
-        {#each filteredChannels as channel (channel.id)}
-          {@const isActive = chatStore.activeChannelId === channel.id || chatStore.activeChannelId === channel.name}
-          <button
-            onclick={() => selectChannel(channel.id)}
-            class="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors duration-100 group cursor-pointer
-              {isActive
-                ? 'bg-[#f0f2f5] dark:bg-[#2a3942]'
-                : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'}"
-          >
-            <!-- Avatar Circle -->
-            <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-2xs">
-              #
-            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <!-- Unified flat list of active conversations (Channels + DMs) like WhatsApp -->
+      {#each activeConversations as channel (channel.id)}
+        {@const isDM = channel.type === 'dm'}
+        {@const targetUser = isDM ? channel.targetUser : null}
+        {@const displayName = isDM ? (targetUser?.displayName || targetUser?.username || 'Staff RSUD') : channel.name}
+        {@const isOnline = isDM && targetUser?.username ? chatStore.isUserOnline(targetUser.username) : false}
+        {@const isTyping = chatStore.isTypingInChannel(channel.id) || chatStore.isTypingInChannel(channel.name) || Boolean(targetUser?.username && chatStore.isTypingInChannel(targetUser.username))}
+        {@const isActive = chatStore.activeChannelId === channel.id || chatStore.activeChannelId === channel.name}
 
-            <!-- Content preview (WhatsApp Authentic Style) -->
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-              <div class="flex items-center justify-between">
-                <span class="text-[15.5px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
-                  {channel.name}
-                </span>
-                <span class="text-[11.5px] shrink-0 ml-2 {channel.unreadCount ? 'text-[#00a884] font-bold' : 'text-[#667781] dark:text-[#8696a0]'}">
-                  {channel.lastMessage?.createdAt ? formatWhatsAppTimestamp(channel.lastMessage.createdAt) : ''}
-                </span>
+        <button
+          onclick={() => selectChannel(channel.id)}
+          class="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors duration-100 group cursor-pointer
+            {isActive
+              ? 'bg-[#f0f2f5] dark:bg-[#2a3942]'
+              : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'}"
+        >
+          <!-- Avatar (Channel Hash or User Avatar with Realtime Online Dot) -->
+          <div class="relative w-12 h-12 rounded-full shrink-0 shadow-2xs">
+            {#if isDM}
+              {#if targetUser?.avatarUrl}
+                <img
+                  src={targetUser.avatarUrl}
+                  alt={displayName}
+                  width="48"
+                  height="48"
+                  loading="lazy"
+                  decoding="async"
+                  class="w-12 h-12 rounded-full object-cover border border-black/5 dark:border-white/5"
+                />
+              {:else}
+                <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-base">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </div>
+              {/if}
+              <!-- Realtime Online Dot: ONLY IF USER IS GENUINELY ONLINE -->
+              {#if isOnline}
+                <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00a884] border-2 border-white dark:border-[#111b21]"></span>
+              {/if}
+            {:else}
+              <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-lg shrink-0">
+                #
               </div>
-              <div class="flex items-center justify-between mt-0.5">
-                <p class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate pr-2">
-                  {#if channel.lastMessage}
-                    {#if channel.lastMessage.attachments && channel.lastMessage.attachments.length > 0}
-                      <span class="inline-flex items-center gap-1 text-[#111b21] dark:text-[#e9edef]">
-                        <span>📷</span>
-                        <span>Foto</span>
-                      </span>
-                    {:else}
-                      <span class="font-medium text-[#111b21]/80 dark:text-[#e9edef]/80">~ {channel.lastMessage.senderName}:</span>
-                      <span>{channel.lastMessage.text}</span>
-                    {/if}
-                  {:else}
-                    <span class="italic text-gray-400 dark:text-gray-500 text-[12px]">Belum ada pesan</span>
-                  {/if}
-                </p>
-                {#if channel.unreadCount && channel.unreadCount > 0}
-                  <span class="min-w-[18px] h-[18px] px-1 bg-[#00a884] text-white font-bold text-[10.5px] rounded-full flex items-center justify-center shrink-0">
-                    {channel.unreadCount}
+            {/if}
+          </div>
+
+          <!-- Content preview (WhatsApp Authentic Style) -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center">
+            <div class="flex items-center justify-between">
+              <span class="text-[15.5px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
+                {displayName}
+              </span>
+              <span class="text-[11.5px] shrink-0 ml-2 {channel.unreadCount ? 'text-[#00a884] font-bold' : 'text-[#667781] dark:text-[#8696a0]'}">
+                {channel.lastMessage?.createdAt ? formatWhatsAppTimestamp(channel.lastMessage.createdAt) : ''}
+              </span>
+            </div>
+            <div class="flex items-center justify-between mt-0.5">
+              <div class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate pr-2">
+                {#if isTyping}
+                  <span class="text-[#008069] dark:text-[#00a884] font-medium italic animate-pulse">
+                    sedang mengetik...
                   </span>
+                {:else if channel.lastMessage}
+                  {#if channel.lastMessage.attachments && channel.lastMessage.attachments.length > 0}
+                    <span class="inline-flex items-center gap-1 text-[#111b21] dark:text-[#e9edef]">
+                      <span>📷</span>
+                      <span>Foto</span>
+                    </span>
+                  {:else}
+                    {#if !isDM}
+                      <span class="font-medium text-[#111b21]/80 dark:text-[#e9edef]/80">~ {channel.lastMessage.senderName}:</span>
+                    {/if}
+                    <span>{channel.lastMessage.text}</span>
+                  {/if}
+                {:else}
+                  <span class="italic text-gray-400 dark:text-gray-500 text-[12px]">Belum ada pesan</span>
                 {/if}
               </div>
+              {#if channel.unreadCount && channel.unreadCount > 0}
+                <span class="min-w-[18px] h-[18px] px-1 bg-[#00a884] text-white font-bold text-[10.5px] rounded-full flex items-center justify-center shrink-0">
+                  {channel.unreadCount}
+                </span>
+              {/if}
             </div>
-          </button>
-        {/each}
-      {/if}
-    {/if}
-
-    <!-- 2. Direct Messages (Staff 1-on-1) Section -->
-    {#if activeTab === 'all' || activeTab === 'direct'}
-      {#if filteredStaffUsers.length > 0}
-        {#if activeTab === 'all'}
-          <div class="px-4 py-2 bg-[#f0f2f5]/80 dark:bg-[#202c33]/80 text-[11px] font-bold text-[#667781] dark:text-[#8696a0] uppercase tracking-wide">
-            Pesan Pribadi Antar Staf
           </div>
-        {/if}
+        </button>
+      {/each}
+
+      <!-- If on "Pribadi / Staf" tab, display Staff Directory to start new conversation -->
+      {#if activeTab === 'direct'}
+        <div class="px-4 py-2.5 bg-[#f0f2f5]/80 dark:bg-[#202c33]/80 text-[11px] font-bold text-[#667781] dark:text-[#8696a0] uppercase tracking-wide flex items-center justify-between">
+          <span>Mulai Chat Baru dengan Staf RSUD</span>
+          <span>{filteredStaffUsers.length} staf</span>
+        </div>
 
         {#each filteredStaffUsers as user (user.id)}
+          {@const isOnline = chatStore.isUserOnline(user.username)}
           <button
             onclick={() => handleStartDM(user)}
             class="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors duration-100 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] group cursor-pointer"
           >
-            <!-- User Avatar with Green online dot -->
+            <!-- User Avatar with Realtime Online dot -->
             <div class="relative w-12 h-12 rounded-full shrink-0 shadow-2xs">
               {#if user.avatarUrl}
                 <img
@@ -363,7 +411,9 @@
                   {(user.displayName || user.username).slice(0, 2).toUpperCase()}
                 </div>
               {/if}
-              <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00a884] border-2 border-white dark:border-[#111b21]"></span>
+              {#if isOnline}
+                <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00a884] border-2 border-white dark:border-[#111b21]"></span>
+              {/if}
             </div>
 
             <!-- User details -->
@@ -377,11 +427,23 @@
                 </span>
               </div>
               <p class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5 flex items-center gap-1">
-                <span>Klik untuk kirim pesan pribadi</span>
+                {#if isOnline}
+                  <span class="text-[#008069] dark:text-[#00a884] font-medium">Online</span>
+                  <span>•</span>
+                {/if}
+                <span>Klik untuk kirim pesan</span>
               </p>
             </div>
           </button>
         {/each}
+      {/if}
+
+      <!-- Empty State if no active conversations and not on direct tab -->
+      {#if activeConversations.length === 0 && activeTab !== 'direct'}
+        <div class="p-8 text-center text-xs text-[#667781] dark:text-[#8696a0] space-y-2">
+          <p class="font-medium text-sm text-[#111b21] dark:text-[#e9edef]">Tidak ada obrolan yang cocok</p>
+          <p>Coba kata kunci pencarian lain atau pilih tab <strong>Pribadi / Staf</strong> untuk memulai obrolan baru.</p>
+        </div>
       {/if}
     {/if}
   </div>

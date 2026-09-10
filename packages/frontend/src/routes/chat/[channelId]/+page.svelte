@@ -473,7 +473,27 @@
     }
   }
 
-  let typingUsers = $derived(chatStore.currentTypingUsers);
+  let isTargetOnline = $derived(
+    isDirectMessage && dmTargetUser?.username
+      ? chatStore.isUserOnline(dmTargetUser.username)
+      : false
+  );
+
+  let typingUsers = $derived(
+    chatStore.getTypingUsers(channelId).length > 0
+      ? chatStore.getTypingUsers(channelId)
+      : chatStore.currentTypingUsers
+  );
+
+  let isTargetTyping = $derived(
+    isDirectMessage
+      ? (dmTargetUser?.username
+          ? chatStore.getTypingUsers(channelId).includes(dmTargetUser.username) ||
+            chatStore.getTypingUsers(chatStore.activeChannelId).includes(dmTargetUser.username) ||
+            chatStore.getTypingUsers(dmTargetUser.username).includes(dmTargetUser.username)
+          : typingUsers.length > 0)
+      : typingUsers.length > 0
+  );
   let canSend = $derived((inputText.trim().length > 0 || uploadedFiles.length > 0) && !isSending);
 </script>
 
@@ -537,11 +557,21 @@
             </span>
           {/if}
         </h1>
-        <div class="text-[12px] text-[#4b5563] dark:text-[#8696a0] truncate">
+        <div class="text-[12px] truncate leading-tight">
           {#if isDirectMessage}
-            <span class="text-[#008069] dark:text-[#00a884] font-medium">Online</span>
+            {#if isTargetTyping}
+              <span class="text-[#008069] dark:text-[#00a884] font-medium animate-pulse">sedang mengetik...</span>
+            {:else if isTargetOnline}
+              <span class="text-[#008069] dark:text-[#00a884] font-medium">Online</span>
+            {:else}
+              <span class="text-[#667781] dark:text-[#8696a0]">Offline</span>
+            {/if}
           {:else}
-            <span>{chatStore.onlineCount} online • BIMA Chat RSUD</span>
+            {#if typingUsers.length > 0}
+              <span class="text-[#008069] dark:text-[#00a884] font-medium animate-pulse">{typingUsers.join(', ')} sedang mengetik...</span>
+            {:else}
+              <span class="text-[#667781] dark:text-[#8696a0]">{chatStore.onlineCount} online • BIMA Chat RSUD</span>
+            {/if}
           {/if}
         </div>
       </div>
@@ -770,17 +800,7 @@
       </div>
     {/if}
 
-    <!-- Typing Indicator -->
-    {#if typingUsers.length > 0}
-      <div class="max-w-4xl mx-auto mb-1.5 px-3 py-1 bg-white/80 dark:bg-[#182229]/80 backdrop-blur-xs rounded-full text-[11px] text-[#008069] dark:text-[#00a884] flex items-center gap-1.5 animate-fadeIn italic shadow-2xs w-fit">
-        <div class="flex space-x-1 items-center">
-          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce"></span>
-          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce [animation-delay:0.2s]"></span>
-          <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce [animation-delay:0.4s]"></span>
-        </div>
-        <span>{typingUsers.join(', ')} sedang mengetik...</span>
-      </div>
-    {/if}
+
 
     <!-- Uploaded Files Preview Shelf -->
     {#if uploadedFiles.length > 0}

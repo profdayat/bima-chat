@@ -18,6 +18,13 @@ redisSub.on('message', (channel, messageStr) => {
   if (channel === 'chat_events') {
     try {
       const payload = JSON.parse(messageStr);
+      if (payload.broadcastAll) {
+        Object.values(channels).forEach((set) => {
+          set.forEach((send) => send(payload.data));
+        });
+        return;
+      }
+
       const { channelId, data } = payload;
       
       // Fan-out to all local subscribers in this channel
@@ -32,5 +39,10 @@ redisSub.on('message', (channel, messageStr) => {
 
 export const publishToChannel = (channelId: string, data: any) => {
   const payload = { channelId, data };
+  redisPub.publish('chat_events', JSON.stringify(payload));
+};
+
+export const publishToAll = (data: any) => {
+  const payload = { broadcastAll: true, data };
   redisPub.publish('chat_events', JSON.stringify(payload));
 };

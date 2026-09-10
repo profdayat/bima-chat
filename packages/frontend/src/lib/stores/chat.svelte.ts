@@ -101,8 +101,10 @@ export function createChatStore() {
 
   // Realtime Presence & Typing states
   let onlineUsers = $state<string[]>([]);
+  let onlineUsernames = $state<Set<string>>(new Set());
   let onlineCount = $state(1);
   let typingUsersMap = $state<Record<string, string[]>>({});
+  const typingClearTimers: Record<string, any> = {};
 
   // Auth state
   let authUser = $state<User | null>(null);
@@ -273,13 +275,54 @@ export function createChatStore() {
     isLoadingChannels = channels.length === 0;
     try {
       const base = getApiBase();
+
+      // Fetch initial active online presence
+      fetch(`${base}/api/chat/presence`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.onlineUsers && Array.isArray(d.onlineUsers)) {
+            onlineUsernames = new Set(d.onlineUsers);
+          }
+        })
+        .catch(() => {});
+
       const res = await fetch(`${base}/api/chat/channels`);
+      let publicChannels: Channel[] = [];
       if (res.ok) {
-        const data = await res.json();
-        channels = data;
-        if (browser) {
-          localStorage.setItem('rsud_cached_channels', JSON.stringify(data));
+        publicChannels = await res.json();
+      }
+
+      // If user is logged in, fetch their direct messages
+      const currentUserId = authUser?.id;
+      let myDms: Channel[] = [];
+      if (currentUserId) {
+        try {
+          const dmRes = await fetch(`${base}/api/chat/my-dms?userId=${encodeURIComponent(currentUserId)}`);
+          if (dmRes.ok) {
+            myDms = await dmRes.json();
+          }
+        } catch (e) {
+          console.error('Failed to load my-dms', e);
         }
+      }
+
+      const combined = [...publicChannels];
+      for (const dm of myDms) {
+        if (!combined.some(c => c.id === dm.id)) {
+          combined.push(dm);
+        }
+      }
+
+      // Sort chronologically by latest message or creation
+      combined.sort((a, b) => {
+        const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+        const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+
+      channels = combined;
+      if (browser) {
+        localStorage.setItem('rsud_cached_channels', JSON.stringify(combined));
       }
     } catch (e) {
       console.error('Failed to load channels', e);
@@ -762,6 +805,9 @@ export function createChatStore() {
           }
           if (data.onlineCount !== undefined) onlineCount = data.onlineCount;
           if (data.onlineUsers) onlineUsers = data.onlineUsers;
+          if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
+            onlineUsernames = new Set([...onlineUsernames, ...data.globalOnlineUsers]);
+          }
           return;
         }
 
@@ -773,18 +819,49 @@ export function createChatStore() {
         if (data.type === 'presence') {
           onlineCount = data.onlineCount || 1;
           onlineUsers = data.onlineUsers || [];
+          if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
+            onlineUsernames = new Set([...onlineUsernames, ...data.globalOnlineUsers]);
+          }
+          return;
+        }
+
+        if (data.type === 'user_presence') {
+          if (data.isOnline) {
+            onlineUsernames.add(data.username);
+          } else {
+            onlineUsernames.delete(data.username);
+          }
+          onlineUsernames = new Set(onlineUsernames);
           return;
         }
 
         if (data.type === 'typing') {
           if (data.username !== currentUsername) {
-            const list = typingUsersMap[channelId] || [];
-            if (data.isTyping) {
-              if (!list.includes(data.username)) {
-                typingUsersMap[channelId] = [...list, data.username];
+            const keys = new Set([
+              channelId,
+              canon,
+              data.channelId,
+              data.aliasChannelId,
+              data.username,
+              activeChannelId
+            ].filter(Boolean) as string[]);
+
+            for (const k of keys) {
+              const list = typingUsersMap[k] || [];
+              if (data.isTyping) {
+                if (!list.includes(data.username)) {
+                  typingUsersMap[k] = [...list, data.username];
+                }
+                const timerKey = `${k}_${data.username}`;
+                if (typingClearTimers[timerKey]) clearTimeout(typingClearTimers[timerKey]);
+                typingClearTimers[timerKey] = setTimeout(() => {
+                  if (typingUsersMap[k]) {
+                    typingUsersMap[k] = typingUsersMap[k].filter(u => u !== data.username);
+                  }
+                }, 4000);
+              } else {
+                typingUsersMap[k] = list.filter(u => u !== data.username);
               }
-            } else {
-              typingUsersMap[channelId] = list.filter(u => u !== data.username);
             }
           }
           return;
@@ -1019,11 +1096,26 @@ export function createChatStore() {
     get onlineUsers() {
       return onlineUsers;
     },
+    get onlineUsernames() {
+      return onlineUsernames;
+    },
+    isUserOnline(username?: string): boolean {
+      if (!username) return false;
+      return onlineUsernames.has(username);
+    },
     get onlineCount() {
       return onlineCount;
     },
     get currentTypingUsers() {
       return activeChannelId ? (typingUsersMap[activeChannelId] || []) : [];
+    },
+    getTypingUsers(key?: string | null): string[] {
+      if (!key) return [];
+      return typingUsersMap[key] || [];
+    },
+    isTypingInChannel(key?: string | null): boolean {
+      if (!key) return false;
+      return (typingUsersMap[key] || []).length > 0;
     },
     get replyingToMessage() {
       return replyingToMessage;
