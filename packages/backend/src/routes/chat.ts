@@ -93,6 +93,33 @@ async function resolveChannel(idOrName: string, currentUsernameOrId?: string) {
       where: eq(schema.channels.id, idOrName)
     });
     if (found) {
+      if (found.type === 'dm' || found.name.startsWith('dm:')) {
+        let me: any = null;
+        if (currentUsernameOrId) {
+          const isCurrentUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentUsernameOrId);
+          me = await db.query.users.findFirst({
+            where: isCurrentUUID
+              ? or(eq(schema.users.id, currentUsernameOrId), eq(schema.users.username, currentUsernameOrId))
+              : eq(schema.users.username, currentUsernameOrId)
+          });
+        }
+        const myId = me?.id || (currentUsernameOrId && /^[0-9a-f-]{36}$/i.test(currentUsernameOrId) ? currentUsernameOrId : null);
+        const myUsername = me?.username || currentUsernameOrId;
+        const parts = found.name.replace(/^dm:/, '').split('_');
+        const targetId = parts.find(p => p !== myId && p !== myUsername) || parts[0];
+        if (targetId) {
+          const isTargetUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
+          const targetUser = await db.query.users.findFirst({
+            where: isTargetUUID
+              ? or(eq(schema.users.id, targetId), eq(schema.users.username, targetId))
+              : eq(schema.users.username, targetId),
+            columns: { id: true, username: true, displayName: true, avatarUrl: true, role: true }
+          });
+          const resolved = { ...found, targetUser };
+          await setCacheJson(cacheKey, resolved, 1800);
+          return resolved;
+        }
+      }
       await setCacheJson(cacheKey, found, 1800);
       return found;
     }
@@ -138,12 +165,23 @@ async function resolveChannel(idOrName: string, currentUsernameOrId?: string) {
 export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat'] } })
   .use(authMiddleware)
   
-  // Standard SSE endpoint using ReadableStream
+  // Standard SSE endpoint using ReadableStream (defaults to 'general' for presence when no channel specified)
   .get('/sse/:channelId', async ({ params: { channelId }, query, request }) => {
     const origin = request.headers.get('origin') || '*';
     const clientUsername = (query.username as string) || 'Staff RSUD';
-    const channel = await resolveChannel(channelId, clientUsername);
+    const effectiveChannelId = channelId || 'general';
+    const channel = await resolveChannel(effectiveChannelId, clientUsername);
     const resolvedId = channel.id;
+
+    // Resolve user to also subscribe to user's direct messages stream
+    const isClientUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientUsername);
+    const clientUser = await db.query.users.findFirst({
+      where: isClientUUID
+        ? or(eq(schema.users.id, clientUsername), eq(schema.users.username, clientUsername))
+        : eq(schema.users.username, clientUsername)
+    });
+    const clientUserId = clientUser?.id;
+    const realUsername = clientUser?.username || clientUsername;
 
     let heartbeat: any;
     let onMessage: (data: any) => void;
@@ -156,18 +194,18 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
         if (!channelUsers[resolvedId]) {
           channelUsers[resolvedId] = new Map();
         }
-        const currentCount = channelUsers[resolvedId].get(clientUsername) || 0;
-        channelUsers[resolvedId].set(clientUsername, currentCount + 1);
+        const currentCount = channelUsers[resolvedId].get(realUsername) || 0;
+        channelUsers[resolvedId].set(realUsername, currentCount + 1);
 
         const onlineUsers = Array.from(channelUsers[resolvedId].keys());
 
         // Track global user presence
-        const globalCount = globalActiveUsers.get(clientUsername) || 0;
-        globalActiveUsers.set(clientUsername, globalCount + 1);
+        const globalCount = globalActiveUsers.get(realUsername) || 0;
+        globalActiveUsers.set(realUsername, globalCount + 1);
         if (globalCount === 0) {
           publishToAll({
             type: 'user_presence',
-            username: clientUsername,
+            username: realUsername,
             isOnline: true
           });
         }
@@ -206,6 +244,14 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
         };
 
         activeChannels[resolvedId].add(onMessage);
+        if (clientUserId) {
+          if (!activeChannels[clientUserId]) activeChannels[clientUserId] = new Set();
+          activeChannels[clientUserId].add(onMessage);
+        }
+        if (realUsername) {
+          if (!activeChannels[realUsername]) activeChannels[realUsername] = new Set();
+          activeChannels[realUsername].add(onMessage);
+        }
 
         heartbeat = setInterval(() => {
           try {
@@ -218,16 +264,18 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       cancel() {
         if (onMessage) {
           activeChannels[resolvedId]?.delete(onMessage);
+          if (clientUserId) activeChannels[clientUserId]?.delete(onMessage);
+          if (realUsername) activeChannels[realUsername]?.delete(onMessage);
         }
         clearInterval(heartbeat);
 
         // Update presence on disconnect
         if (channelUsers[resolvedId]) {
-          const currentCount = channelUsers[resolvedId].get(clientUsername) || 1;
+          const currentCount = channelUsers[resolvedId].get(realUsername) || 1;
           if (currentCount <= 1) {
-            channelUsers[resolvedId].delete(clientUsername);
+            channelUsers[resolvedId].delete(realUsername);
           } else {
-            channelUsers[resolvedId].set(clientUsername, currentCount - 1);
+            channelUsers[resolvedId].set(realUsername, currentCount - 1);
           }
 
           const remainingUsers = Array.from(channelUsers[resolvedId].keys());
@@ -322,6 +370,12 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
     publishToChannel(resolvedId, messagePayload);
     if (channelId !== resolvedId) {
       publishToChannel(channelId, messagePayload);
+    }
+    if (channel.type === 'dm' || channel.name.startsWith('dm:')) {
+      const parts = channel.name.replace(/^dm:/, '').split('_');
+      for (const p of parts) {
+        publishToChannel(p, messagePayload);
+      }
     }
 
     // Invalidate Redis caches for history, DMs, and public channels
@@ -547,6 +601,12 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
     if (channelId !== resolvedId) {
       publishToChannel(channelId, payload);
     }
+    if (channel.type === 'dm' || channel.name.startsWith('dm:')) {
+      const parts = channel.name.replace(/^dm:/, '').split('_');
+      for (const p of parts) {
+        publishToChannel(p, payload);
+      }
+    }
 
     return { status: 'ok' };
   }, {
@@ -666,9 +726,28 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       }
 
       let targetUser: any = (chan as any).targetUser || null;
+
+      // Determine requester identity to never return ourselves as targetUser
+      let me: any = null;
+      if (currentUserId) {
+        const isCurrentUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentUserId);
+        me = await db.query.users.findFirst({
+          where: isCurrentUUID
+            ? or(eq(schema.users.id, currentUserId), eq(schema.users.username, currentUserId))
+            : eq(schema.users.username, currentUserId)
+        });
+      }
+      const myId = me?.id || (currentUserId && /^[0-9a-f-]{36}$/i.test(currentUserId) ? currentUserId : null);
+      const myUsername = me?.username || currentUserId;
+
+      // If targetUser accidentally matches ourselves, invalidate it
+      if (targetUser && (targetUser.id === myId || targetUser.username === myUsername)) {
+        targetUser = null;
+      }
+
       if (!targetUser && (chan.type === 'dm' || chan.name.startsWith('dm:'))) {
         const parts = chan.name.replace('dm:', '').split('_');
-        const targetId = currentUserId ? parts.find(p => p !== currentUserId) : parts[0];
+        const targetId = parts.find(p => p !== myId && p !== myUsername) || parts[0];
         if (targetId) {
           const isTargetUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
           targetUser = await db.query.users.findFirst({
@@ -759,6 +838,29 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
     return {
       onlineUsers: Array.from(globalActiveUsers.keys())
     };
+  })
+
+  // Explicit presence leave endpoint (e.g. beforeunload / pagehide)
+  .post('/presence/leave', async ({ body }) => {
+    const username = body.username;
+    if (username) {
+      const curCount = globalActiveUsers.get(username) || 1;
+      if (curCount <= 1) {
+        globalActiveUsers.delete(username);
+        publishToAll({
+          type: 'user_presence',
+          username,
+          isOnline: false
+        });
+      } else {
+        globalActiveUsers.set(username, curCount - 1);
+      }
+    }
+    return { status: 'ok' };
+  }, {
+    body: t.Object({
+      username: t.String()
+    })
   })
 
   // List public channels with last message preview (Cached in Redis)

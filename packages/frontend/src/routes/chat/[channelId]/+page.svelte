@@ -20,20 +20,34 @@
     channelId.startsWith('@') ? channelId.slice(1) : ''
   );
 
-  // Find the other user for Direct Message header display
+  // Find the other user for Direct Message header display (strictly never ourselves)
   let dmTargetUser = $derived.by(() => {
     if (!isDirectMessage) return null;
-    if (channelInfo?.targetUser) return channelInfo.targetUser;
-    if (dmTargetUsername) {
-      const found = chatStore.usersList.find(u => u.username === dmTargetUsername);
-      if (found) return found;
+    const myId = chatStore.authUser?.id;
+    const myUsername = chatStore.currentUsername;
+
+    // 1. If channelInfo has targetUser, make sure it is NOT ourselves
+    if (channelInfo?.targetUser) {
+      const t = channelInfo.targetUser;
+      if (t.id !== myId && t.username !== myUsername) {
+        return t;
+      }
     }
+
+    // 2. If route is @username, resolve from usersList
+    if (dmTargetUsername && dmTargetUsername !== myUsername) {
+      const found = chatStore.usersList.find(u => u.username === dmTargetUsername);
+      if (found && found.id !== myId && found.username !== myUsername) return found;
+    }
+
+    // 3. Fallback: Parse dm:UUID_UUID name and find the other user
     const nameOrId = channelInfo?.name || channelId || '';
     if (nameOrId.startsWith('dm:')) {
       const parts = nameOrId.replace(/^dm:/, '').split('_');
-      const otherId = parts.find(p => p !== (chatStore.authUser?.id || 'guest'));
+      const otherId = parts.find(p => p !== myId && p !== myUsername);
       if (otherId) {
-        return chatStore.usersList.find(u => u.id === otherId) || null;
+        const found = chatStore.usersList.find(u => u.id === otherId || u.username === otherId);
+        if (found && found.id !== myId && found.username !== myUsername) return found;
       }
     }
     return null;
@@ -134,7 +148,8 @@
 
     return () => {
       untrack(() => {
-        chatStore.disconnect();
+        // Fall back to general presence so user stays online in chat list
+        chatStore.connect('general');
       });
     };
   });
@@ -474,7 +489,7 @@
   }
 
   let isTargetOnline = $derived(
-    isDirectMessage && dmTargetUser?.username
+    isDirectMessage && dmTargetUser?.username && dmTargetUser.username !== chatStore.currentUsername
       ? chatStore.isUserOnline(dmTargetUser.username)
       : false
   );

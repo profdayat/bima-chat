@@ -3,8 +3,9 @@
   import AuthModal from '$lib/components/AuthModal.svelte';
   import UserProfileModal from '$lib/components/UserProfileModal.svelte';
   import { uiStore } from '$lib/stores/ui.svelte';
+  import { chatStore } from '$lib/stores/chat.svelte';
   import { browser } from '$app/environment';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
 
   let { children } = $props();
@@ -24,6 +25,23 @@
           sidebarWidth = parsed;
         }
       }
+
+      // Connect immediately to presence as soon as the user opens the chat app (even at /chat)
+      // so user is instantly ONLINE to all colleagues without needing to enter a chat first!
+      const targetChannel = $page.params.channelId || 'general';
+      chatStore.connect(targetChannel);
+    }
+  });
+
+  // Ensure presence remains active when navigating between channel list /chat and channels
+  $effect(() => {
+    const channelParam = $page.params.channelId;
+    if (browser && !channelParam) {
+      untrack(() => {
+        if (!chatStore.isConnected || chatStore.activeChannelId !== 'general') {
+          chatStore.connect('general');
+        }
+      });
     }
   });
 

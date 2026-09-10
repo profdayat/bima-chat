@@ -148,6 +148,18 @@ export function createChatStore() {
       guestNickname = generated;
       localStorage.setItem('rsud_chat_username', generated);
     }
+
+    // Cleanly notify server on tab/window close
+    window.addEventListener('beforeunload', () => {
+      const user = authUser?.username || guestNickname;
+      if (user && user !== 'Staff RSUD') {
+        const base = getApiBase();
+        const payload = JSON.stringify({ username: user });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(`${base}/api/chat/presence/leave`, new Blob([payload], { type: 'application/json' }));
+        }
+      }
+    });
   }
 
   let currentUsername = $derived(authUser ? authUser.username : guestNickname);
@@ -416,26 +428,38 @@ export function createChatStore() {
 
   async function fetchChannelInfo(channelId: string): Promise<any | null> {
     if (!browser || !channelId) return null;
+    const current = currentUsername;
+    const myId = authUser?.id || '';
     const existing = channels.find(c => c.id === channelId || c.name === channelId);
-    if (existing && existing.type) return existing;
+    if (existing && existing.type && (!existing.targetUser || (existing.targetUser.username !== current && existing.targetUser.id !== myId))) {
+      return existing;
+    }
 
     try {
       const base = getApiBase();
       const headers: Record<string, string> = {};
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      const current = currentUsername;
-      const res = await fetch(`${base}/api/chat/channel/${encodeURIComponent(channelId)}?username=${encodeURIComponent(current)}`, { headers });
+      const res = await fetch(`${base}/api/chat/channel/${encodeURIComponent(channelId)}?username=${encodeURIComponent(current)}&userId=${encodeURIComponent(myId)}`, { headers });
       if (res.ok) {
         const chanData = await res.json();
+        // Discard targetUser if it accidentally matches ourselves
+        const safeTargetUser = (chanData.targetUser && (chanData.targetUser.username === current || chanData.targetUser.id === myId))
+          ? null
+          : chanData.targetUser;
+
         const formatted = {
           id: chanData.id,
           name: chanData.name,
           type: chanData.type,
           description: chanData.description,
           createdAt: chanData.createdAt,
-          targetUser: chanData.targetUser
+          targetUser: safeTargetUser || existing?.targetUser || null
         };
-        if (!channels.some(c => c.id === formatted.id)) {
+        const idx = channels.findIndex(c => c.id === formatted.id);
+        if (idx !== -1) {
+          channels[idx] = { ...channels[idx], ...formatted };
+          channels = [...channels];
+        } else {
           channels = [...channels, formatted];
         }
         return formatted;
@@ -762,6 +786,11 @@ export function createChatStore() {
 
   function connect(channelId: string) {
     if (!browser) return;
+    const canonId = getCanonicalId(channelId);
+    if (eventSource && isConnected && (activeChannelId === channelId || (canonId && activeChannelId === canonId))) {
+      return;
+    }
+
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (eventSource) {
       eventSource.close();
@@ -769,7 +798,6 @@ export function createChatStore() {
     }
     
     activeChannelId = channelId;
-    const canonId = getCanonicalId(channelId);
     // Init message arrays for both channel name and UUID
     if (!messages[channelId]) messages[channelId] = [];
     if (canonId && canonId !== channelId && !messages[canonId]) messages[canonId] = messages[channelId];
@@ -806,7 +834,7 @@ export function createChatStore() {
           if (data.onlineCount !== undefined) onlineCount = data.onlineCount;
           if (data.onlineUsers) onlineUsers = data.onlineUsers;
           if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
-            onlineUsernames = new Set([...onlineUsernames, ...data.globalOnlineUsers]);
+            onlineUsernames = new Set(data.globalOnlineUsers);
           }
           return;
         }
@@ -820,7 +848,7 @@ export function createChatStore() {
           onlineCount = data.onlineCount || 1;
           onlineUsers = data.onlineUsers || [];
           if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
-            onlineUsernames = new Set([...onlineUsernames, ...data.globalOnlineUsers]);
+            onlineUsernames = new Set(data.globalOnlineUsers);
           }
           return;
         }
