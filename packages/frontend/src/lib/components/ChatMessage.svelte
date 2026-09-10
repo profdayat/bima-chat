@@ -169,10 +169,10 @@
         <!-- Replied Quote inside Bubble (WhatsApp Style) -->
         {#if repliedMessage}
           <div class="mb-1.5 p-2 bg-black/5 dark:bg-[#182229] rounded-md text-xs border-l-4 border-[#008069] max-w-full text-left truncate">
-            <p class="font-bold text-[#008069] dark:text-[#53bdeb] text-[11.5px]">
+            <p class="font-bold text-[#008069] dark:text-[#00a884] text-[11.5px]">
               ~ {repliedMessage.sender?.username || 'Staff RSUD'}
             </p>
-            <p class="text-[#4b5563] dark:text-[#9ca3af] text-[12.5px] truncate mt-0.5">
+            <p class="text-[#667781] dark:text-[#8696a0] text-[12.5px] truncate mt-0.5">
               {repliedMessage.text}
             </p>
           </div>
@@ -192,7 +192,7 @@
 
             <!-- Timestamp & Status Checkmarks Floated inline -->
             <span
-              class="inline-flex items-center gap-1 float-right translate-y-1.5 ml-2.5 text-[11px] select-none text-[#4b5563] dark:text-[#9ca3af]"
+              class="inline-flex items-center gap-1 float-right translate-y-1.5 ml-2.5 text-[11px] select-none text-[#667781] dark:text-[#8696a0]"
             >
               <span>{formatTime(message.timestamp)}</span>
 
@@ -215,7 +215,7 @@
                     </svg>
                   </div>
                 {:else if msgStatus === 'read'}
-                  <div class="inline-flex -space-x-2 text-[#53bdeb]" role="img" aria-label="Dibaca">
+                  <div class="inline-flex -space-x-2 text-[#00a884]" role="img" aria-label="Dibaca">
                     <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                     </svg>
@@ -229,7 +229,7 @@
           </div>
         {:else}
           <!-- Timestamp & Status Checkmarks for media-only messages without caption -->
-          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#4b5563] dark:text-[#9ca3af] -mt-0.5 pt-0.5">
+          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#667781] dark:text-[#8696a0] -mt-0.5 pt-0.5">
             <span>{formatTime(message.timestamp)}</span>
 
             {#if isSelf}
@@ -251,7 +251,7 @@
                   </svg>
                 </div>
               {:else if msgStatus === 'read'}
-                <div class="inline-flex -space-x-2 text-[#53bdeb]" role="img" aria-label="Dibaca">
+                <div class="inline-flex -space-x-2 text-[#00a884]" role="img" aria-label="Dibaca">
                   <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                   </svg>

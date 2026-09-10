@@ -63,9 +63,6 @@
 <svelte:head>
   <title>Login - BIMA Chat</title>
   <meta name="description" content="Masuk ke BIMA Chat, platform komunikasi realtime internal RSUD Bangil." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
 </svelte:head>
 
@@ -91,9 +88,6 @@
 
   <!-- Main Content -->
   <main class="landing-main">
-    <!-- Background blob -->
-    <div class="landing-bg-blob" aria-hidden="true"></div>
-
     <!-- Login / Register / Guest Card -->
     <div class="landing-card">
 
@@ -304,37 +298,38 @@
         <span class="landing-footer-copy">© {new Date().getFullYear()} RSUD Bangil Kab. Pasuruan</span>
       </div>
       <nav class="landing-footer-nav" aria-label="Footer navigation">
-        <a href="#" class="landing-footer-link">Bantuan</a>
-        <a href="#" class="landing-footer-link">Privasi</a>
-        <a href="#" class="landing-footer-link">Syarat &amp; Ketentuan</a>
+        <span class="landing-footer-link">Bantuan</span>
+        <span class="landing-footer-link">Privasi</span>
+        <span class="landing-footer-link">Syarat &amp; Ketentuan</span>
       </nav>
     </div>
   </footer>
 </div>
 
 <style>
-  /* ─── Font faces loaded via svelte:head ─── */
+  /* ─── Font faces — WhatsApp Web System Font Stack ─── */
   :global(body) {
-    font-family: 'Nunito Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
-  /* ─── CSS custom properties ─── */
+  /* ─── CSS custom properties — WhatsApp 2025 Palette ─── */
   .landing-page {
-    /* Light mode — clean neutral whites & greens */
+    /* Light mode */
     --clr-primary:             #008069;
-    --clr-primary-container:   #e8f5f1;
+    --clr-primary-active:      #00a884;
+    --clr-primary-container:   #e8faf6;
     --clr-on-primary:          #ffffff;
-    --clr-background:          #f0f2f5;
+    --clr-background:          #efeae2;
     --clr-surface:             #ffffff;
     --clr-surface-container:   #f0f2f5;
     --clr-surface-lowest:      #ffffff;
     --clr-on-surface:          #111b21;
-    --clr-on-surface-variant:  #4b5563;
-    --clr-outline:             #8d9db5;
-    --clr-outline-variant:     #d1d5db;
-    --clr-error:               #dc2626;
+    --clr-on-surface-variant:  #667781;
+    --clr-outline:             #8696a0;
+    --clr-outline-variant:     #e9edef;
+    --clr-error:               #ea0038;
     --clr-error-container:     #fee2e2;
-    --clr-secondary:           #6b7280;
+    --clr-secondary:           #667781;
 
     min-height: 100svh;
     display: flex;
@@ -345,18 +340,19 @@
 
   /* Dark mode overrides — WhatsApp-style dark slate */
   :global(html.dark) .landing-page {
-    --clr-primary:             #25d366;
-    --clr-primary-container:   #1a3a2e;
-    --clr-on-primary:          #0b1e18;
-    --clr-background:          #111b21;
-    --clr-surface:             #182229;
+    --clr-primary:             #00a884;
+    --clr-primary-active:      #008069;
+    --clr-primary-container:   #1f2c34;
+    --clr-on-primary:          #ffffff;
+    --clr-background:          #0b141a;
+    --clr-surface:             #111b21;
     --clr-surface-container:   #202c33;
-    --clr-surface-lowest:      #182229;
+    --clr-surface-lowest:      #111b21;
     --clr-on-surface:          #e9edef;
     --clr-on-surface-variant:  #8696a0;
-    --clr-outline:             #4a6070;
-    --clr-outline-variant:     #2a3942;
-    --clr-error:               #f87171;
+    --clr-outline:             #374248;
+    --clr-outline-variant:     #222d34;
+    --clr-error:               #f15c6d;
     --clr-error-container:     #450a0a;
     --clr-secondary:           #8696a0;
   }
@@ -387,7 +383,6 @@
     font-size: 1.5rem;
   }
   .landing-brand-name {
-    font-family: 'Literata', serif;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--clr-primary);
@@ -418,14 +413,6 @@
     padding: 1.5rem;
     position: relative;
     overflow: hidden;
-  }
-  .landing-bg-blob {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(ellipse 70% 60% at 50% 50%,
-      color-mix(in srgb, var(--clr-primary) 8%, transparent) 0%,
-      transparent 70%);
   }
 
   /* ─── Card ─── */
@@ -466,7 +453,6 @@
     font-size: 1.875rem;
   }
   .landing-title {
-    font-family: 'Literata', serif;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--clr-on-surface);
@@ -599,7 +585,6 @@
     color: var(--clr-on-surface-variant);
     border: none;
     border-radius: 0.75rem;
-    font-family: 'Nunito Sans', sans-serif;
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
@@ -711,7 +696,6 @@
     flex-wrap: wrap;
   }
   .landing-footer-brand-name {
-    font-family: 'Literata', serif;
     font-size: 0.875rem;
     font-weight: 700;
     color: var(--clr-primary);

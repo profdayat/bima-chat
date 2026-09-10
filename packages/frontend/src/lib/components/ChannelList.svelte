@@ -98,7 +98,7 @@
         <p class="text-[13px] font-bold text-[#111b21] dark:text-[#e9edef] truncate max-w-[120px]">
           {chatStore.currentUsername}
         </p>
-        <p class="text-[10px] text-[#008069] dark:text-[#25d366] font-semibold">
+        <p class="text-[10px] text-[#008069] dark:text-[#00a884] font-semibold">
           {chatStore.authUser ? chatStore.authUser.role.toUpperCase() : 'TAMU'}
         </p>
       </div>
@@ -360,7 +360,7 @@
                   {(user.displayName || user.username).slice(0, 2).toUpperCase()}
                 </div>
               {/if}
-              <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#25d366] border-2 border-white dark:border-[#111b21]"></span>
+              <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#00a884] border-2 border-white dark:border-[#111b21]"></span>
             </div>
 
             <!-- User details -->
@@ -369,7 +369,7 @@
                 <span class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
                   {user.displayName || user.username}
                 </span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#008069]/15 text-[#008069] dark:text-[#25d366] font-bold shrink-0 ml-2">
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#008069]/15 text-[#008069] dark:text-[#00a884] font-bold shrink-0 ml-2">
                   {user.role.toUpperCase()}
                 </span>
               </div>

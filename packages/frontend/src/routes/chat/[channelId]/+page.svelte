@@ -521,14 +521,14 @@
         <h1 class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] flex items-center gap-1.5 leading-tight truncate">
           <span>{channelDisplayName}</span>
           {#if isDirectMessage && dmTargetUser}
-            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#008069]/20 text-[#008069] dark:text-[#25d366]">
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#008069]/20 text-[#008069] dark:text-[#00a884]">
               {dmTargetUser.role.toUpperCase()}
             </span>
           {/if}
         </h1>
         <div class="text-[12px] text-[#4b5563] dark:text-[#8696a0] truncate">
           {#if isDirectMessage}
-            <span class="text-[#008069] dark:text-[#25d366] font-medium">Online</span>
+            <span class="text-[#008069] dark:text-[#00a884] font-medium">Online</span>
           {:else}
             <span>{chatStore.onlineCount} online • BIMA Chat RSUD</span>
           {/if}
@@ -539,13 +539,13 @@
     <!-- Live SSE Status Indicator -->
     <div class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ml-2 border transition-colors
       {chatStore.isConnected 
-        ? 'bg-emerald-500/10 text-[#008069] dark:text-[#25d366] border-[#008069]/30' 
+        ? 'bg-emerald-500/10 text-[#008069] dark:text-[#00a884] border-[#008069]/30' 
         : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
     >
       <span class="relative flex h-2 w-2">
         {#if chatStore.isConnected}
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069] dark:bg-[#25d366]"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069] dark:bg-[#00a884]"></span>
         {:else}
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         {/if}
@@ -566,7 +566,7 @@
       >
         <span class="text-amber-500 font-bold text-sm shrink-0">📌</span>
         <div class="min-w-0 truncate">
-          <span class="font-bold text-[#008069] dark:text-[#25d366] mr-1">
+          <span class="font-bold text-[#008069] dark:text-[#00a884] mr-1">
             {latestPinned.sender?.username || 'Pesan Disematkan'}:
           </span>
           <span class="text-[#4b5563] dark:text-[#9ca3af] truncate">
@@ -618,7 +618,7 @@
 
       {#if chatStore.messages.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center p-8 space-y-3">
-          <div class="w-16 h-16 rounded-full bg-white/80 dark:bg-[#202c33] text-[#008069] dark:text-[#25d366] flex items-center justify-center text-2xl font-bold shadow-xs">
+          <div class="w-16 h-16 rounded-full bg-white/80 dark:bg-[#202c33] text-[#008069] dark:text-[#00a884] flex items-center justify-center text-2xl font-bold shadow-xs">
             {isDirectMessage ? '💬' : '#'}
           </div>
           <div>
@@ -714,7 +714,7 @@
 
     <!-- Typing Indicator -->
     {#if typingUsers.length > 0}
-      <div class="max-w-4xl mx-auto mb-1.5 px-3 py-1 bg-white/80 dark:bg-[#182229]/80 backdrop-blur-xs rounded-full text-[11px] text-[#008069] dark:text-[#25d366] flex items-center gap-1.5 animate-fadeIn italic shadow-2xs w-fit">
+      <div class="max-w-4xl mx-auto mb-1.5 px-3 py-1 bg-white/80 dark:bg-[#182229]/80 backdrop-blur-xs rounded-full text-[11px] text-[#008069] dark:text-[#00a884] flex items-center gap-1.5 animate-fadeIn italic shadow-2xs w-fit">
         <div class="flex space-x-1 items-center">
           <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce"></span>
           <span class="w-1.5 h-1.5 bg-[#008069] rounded-full animate-bounce [animation-delay:0.2s]"></span>
@@ -756,7 +756,7 @@
               <button
                 type="button"
                 onclick={() => (selectedEmojiCategory = cat)}
-                class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition {selectedEmojiCategory === cat ? 'bg-[#008069]/20 text-[#008069] dark:text-[#25d366]' : 'text-[#4b5563] hover:bg-black/5 dark:hover:bg-white/5'}"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition {selectedEmojiCategory === cat ? 'bg-[#008069]/20 text-[#008069] dark:text-[#00a884]' : 'text-[#4b5563] hover:bg-black/5 dark:hover:bg-white/5'}"
               >
                 <span>{EMOJI_CATEGORIES[cat].icon}</span>
                 <span class="text-[11px] whitespace-nowrap">{EMOJI_CATEGORIES[cat].title}</span>
@@ -887,8 +887,8 @@
         aria-label="Kirim Pesan"
         class="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full flex items-center justify-center transition-all shrink-0
           {canSend
-            ? 'bg-[#008069] hover:bg-[#007a60] active:scale-95 text-white shadow-md cursor-pointer'
-            : 'bg-[#008069]/40 dark:bg-[#008069]/30 text-white/60 dark:text-white/40 cursor-not-allowed shadow-none'}"
+            ? 'bg-[#00a884] hover:bg-[#008069] active:scale-95 text-white shadow-md cursor-pointer'
+            : 'bg-[#00a884]/40 dark:bg-[#00a884]/30 text-white/60 dark:text-white/40 cursor-not-allowed shadow-none'}"
       >
         {#if isSending}
           <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
