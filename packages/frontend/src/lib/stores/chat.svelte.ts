@@ -1,1195 +1,207 @@
-import { browser } from '$app/environment';
-import { saveMessagesToLocal, deleteMessageFromLocal, updateMessageInLocal } from '$lib/stores/localdb';
-
-export interface Channel {
-  id: string;
-  name: string;
-  type?: string;
-  description?: string;
-  targetUser?: User;
-  createdAt: string;
-  lastMessage?: {
-    text: string;
-    senderName?: string;
-    attachments?: any[] | null;
-    createdAt?: string;
-  } | null;
-  unreadCount?: number;
-}
-
-export function formatWhatsAppTimestamp(dateStr: string | undefined): string {
-  if (!dateStr) return '';
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    
-    // Check if today: "14.46"
-    if (date.toDateString() === now.toDateString()) {
-      return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
-    }
-
-    // Check if yesterday: "Kemarin"
-    const yesterday = new Date();
-    yesterday.setDate(now.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) {
-      return 'Kemarin';
-    }
-
-    // Check if within last 6 days: "Senin", "Selasa", etc.
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 7 && diffDays > 0) {
-      return date.toLocaleDateString('id-ID', { weekday: 'long' });
-    }
-
-    // Else: "07/09/26"
-    return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
-  } catch {
-    return '';
-  }
-}
-
-export interface User {
-  id: string;
-  username: string;
-  role: string;
-  displayName?: string;
-  avatarUrl?: string;
-  isActive?: string;
-}
-
-export type MessageStatus = 'pending' | 'sending' | 'sent' | 'delivered' | 'read';
-
-export interface ChatMessage {
-  id: string;
-  channelId: string;
-  text: string;
-  status: MessageStatus;
-  replyToId?: string | null;
-  attachments?: { url: string; name: string; type: string; size: number }[] | null;
-  reactions?: { emoji: string; username: string }[];
-  isPinned?: boolean;
-  sender: {
-    id: string;
-    username: string;
-    displayName?: string;
-    avatarUrl?: string;
-  } | any;
-  timestamp: string;
-  type?: string;
-}
-
-export function getApiBase(): string {
-  if (!browser) return 'http://backend:8080';
-  // Always use relative paths in browser so all requests go through Vite proxy
-  // This ensures SSE and REST requests share the same connection context
-  return '';
-}
-
-export function createChatStore() {
-  let messages = $state<Record<string, ChatMessage[]>>({});
-  let activeChannelId = $state<string | null>(null);
-  let isConnected = $state(false);
-  let channels = $state<Channel[]>([]);
-  let isLoadingChannels = $state(false);
-  
-  // System settings state
-  let systemSettings = $state({ allowGuest: true, allowRegistration: true });
-  let isLoadingSettings = $state(false);
-
-  // Gaps state
-  let replyingToMessage = $state<ChatMessage | null>(null);
-
-  // Realtime Presence & Typing states
-  let onlineUsers = $state<string[]>([]);
-  let onlineUsernames = $state<Set<string>>(new Set());
-  let onlineCount = $state(1);
-  let typingUsersMap = $state<Record<string, string[]>>({});
-  const typingClearTimers: Record<string, any> = {};
-
-  // Auth state
-  let authUser = $state<User | null>(null);
-  let authToken = $state<string | null>(null);
-  let guestNickname = $state('Staff RSUD');
-  let eventSource: EventSource | null = null;
-  let reconnectTimer: any = null;
-  let heartbeatWatchdog: any = null;
-
-  function resetHeartbeatWatchdog(chId: string) {
-    if (heartbeatWatchdog) clearTimeout(heartbeatWatchdog);
-    heartbeatWatchdog = setTimeout(() => {
-      if (activeChannelId && browser) {
-        console.log('🔄 SSE heartbeat timeout, auto-reconnecting...');
-        connect(activeChannelId);
-      }
-    }, 45000);
-  }
-  let typingTimeout: any = null;
-
-  if (browser) {
-    // Restore auth
-    const savedToken = localStorage.getItem('rsud_chat_token');
-    const savedUser = localStorage.getItem('rsud_chat_user');
-    if (savedToken && savedUser) {
-      try {
-        authToken = savedToken;
-        authUser = JSON.parse(savedUser);
-      } catch {
-        localStorage.removeItem('rsud_chat_token');
-        localStorage.removeItem('rsud_chat_user');
-      }
-    }
-
-    // Restore guest nickname
-    const savedNickname = localStorage.getItem('rsud_chat_username');
-    if (savedNickname) {
-      guestNickname = savedNickname;
-    } else {
-      const generated = `Staff-${Math.floor(1000 + Math.random() * 9000)}`;
-      guestNickname = generated;
-      localStorage.setItem('rsud_chat_username', generated);
-    }
-
-    // Cleanly notify server on tab/window close
-    window.addEventListener('beforeunload', () => {
-      const user = authUser?.username || guestNickname;
-      if (user && user !== 'Staff RSUD') {
-        const base = getApiBase();
-        const payload = JSON.stringify({ username: user });
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon(`${base}/api/chat/presence/leave`, new Blob([payload], { type: 'application/json' }));
-        }
-      }
-    });
-  }
-
-  let currentUsername = $derived(authUser ? authUser.username : guestNickname);
-
-  function setGuestNickname(name: string) {
-    if (!name.trim()) return;
-    guestNickname = name.trim();
-    if (browser) {
-      localStorage.setItem('rsud_chat_username', guestNickname);
-    }
-  }
-
-  async function login(username: string, password: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch {
-        // Fallback if server returned plain text or html error
-      }
-
-      if (!res.ok) {
-        return { success: false, error: data?.message || 'Login gagal, periksa username/password' };
-      }
-
-      authToken = data.token;
-      authUser = data.user;
-      if (browser) {
-        localStorage.setItem('rsud_chat_token', data.token);
-        localStorage.setItem('rsud_chat_user', JSON.stringify(data.user));
-      }
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Gagal terhubung ke server' };
-    }
-  }
-
-  async function register(username: string, password: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch {
-        // Fallback if server returned plain text or html error
-      }
-
-      if (!res.ok) {
-        return { success: false, error: data?.message || 'Registrasi gagal, username mungkin sudah digunakan' };
-      }
-
-      authToken = data.token;
-      authUser = data.user;
-      if (browser) {
-        localStorage.setItem('rsud_chat_token', data.token);
-        localStorage.setItem('rsud_chat_user', JSON.stringify(data.user));
-      }
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Gagal terhubung ke server' };
-    }
-  }
-
-  async function updateProfile(displayName: string, avatarUrl?: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ displayName, avatarUrl })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.message || 'Gagal update profil' };
-      }
-
-      authUser = data.user;
-      if (browser) {
-        localStorage.setItem('rsud_chat_user', JSON.stringify(data.user));
-      }
-      // Refresh user list so updated avatar/displayName reflects everywhere
-      loadUsers();
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Error koneksi server' };
-    }
-  }
-
-  function logout() {
-    authToken = null;
-    authUser = null;
-    if (browser) {
-      localStorage.removeItem('rsud_chat_token');
-      localStorage.removeItem('rsud_chat_user');
-    }
-  }
-
-  async function loadChannels() {
-    if (browser && channels.length === 0) {
-      const cached = localStorage.getItem('rsud_cached_channels');
-      if (cached) {
-        try {
-          channels = JSON.parse(cached);
-          isLoadingChannels = false;
-        } catch {}
-      }
-    }
-    isLoadingChannels = channels.length === 0;
-    try {
-      const base = getApiBase();
-
-      // Fetch initial active online presence
-      fetch(`${base}/api/chat/presence`)
-        .then(r => r.json())
-        .then(d => {
-          if (d.onlineUsers && Array.isArray(d.onlineUsers)) {
-            onlineUsernames = new Set(d.onlineUsers);
-          }
-        })
-        .catch(() => {});
-
-      const res = await fetch(`${base}/api/chat/channels`);
-      let publicChannels: Channel[] = [];
-      if (res.ok) {
-        publicChannels = await res.json();
-      }
-
-      // If user is logged in, fetch their direct messages
-      const currentUserId = authUser?.id;
-      let myDms: Channel[] = [];
-      if (currentUserId) {
-        try {
-          const dmRes = await fetch(`${base}/api/chat/my-dms?userId=${encodeURIComponent(currentUserId)}`);
-          if (dmRes.ok) {
-            myDms = await dmRes.json();
-          }
-        } catch (e) {
-          console.error('Failed to load my-dms', e);
-        }
-      }
-
-      const combined = [...publicChannels];
-      for (const dm of myDms) {
-        if (!combined.some(c => c.id === dm.id)) {
-          combined.push(dm);
-        }
-      }
-
-      // Sort chronologically by latest message or creation
-      combined.sort((a, b) => {
-        const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
-        const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
-        return timeB - timeA;
-      });
-
-      channels = combined;
-      if (browser) {
-        localStorage.setItem('rsud_cached_channels', JSON.stringify(combined));
-      }
-    } catch (e) {
-      console.error('Failed to load channels', e);
-    } finally {
-      isLoadingChannels = false;
-    }
-  }
-
-  async function loadSystemSettings() {
-    isLoadingSettings = true;
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/settings/public`);
-      if (res.ok) {
-        const data = await res.json();
-        systemSettings = {
-          allowGuest: data.allowGuest !== false,
-          allowRegistration: data.allowRegistration !== false
-        };
-      }
-    } catch (e) {
-      console.error('Failed to load system settings', e);
-    } finally {
-      isLoadingSettings = false;
-    }
-  }
-
-  let usersList = $state<User[]>([]);
-  let isLoadingUsers = $state(false);
-
-  async function loadUsers() {
-    if (!browser) return;
-    if (usersList.length === 0) {
-      const cached = localStorage.getItem('rsud_cached_users');
-      if (cached) {
-        try {
-          usersList = JSON.parse(cached);
-        } catch {}
-      }
-    }
-    isLoadingUsers = true;
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/chat/users`);
-      if (res.ok) {
-        const data = await res.json();
-        usersList = data;
-        if (browser) {
-          localStorage.setItem('rsud_cached_users', JSON.stringify(data));
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load users', e);
-    } finally {
-      isLoadingUsers = false;
-    }
-  }
-
-  async function startDirectMessage(targetUserId: string): Promise<any | null> {
-    if (!browser) return null;
-    try {
-      const base = getApiBase();
-      const currentUserId = authUser?.id || usersList.find(u => u.username === (authUser?.username || guestNickname))?.id;
-      if (!currentUserId) return null;
-      if (currentUserId === targetUserId) return null;
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-      const res = await fetch(`${base}/api/chat/dm`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          targetUserId,
-          currentUserId
-        })
-      });
-
-      if (res.ok) {
-        const dmChan = await res.json();
-        if (!channels.some(c => c.id === dmChan.id)) {
-          channels = [...channels, { id: dmChan.id, name: dmChan.name, type: 'dm', description: dmChan.description, createdAt: dmChan.createdAt, targetUser: dmChan.targetUser }];
-        }
-        return dmChan;
-      }
-    } catch (e) {
-      console.error('Failed to start DM', e);
-    }
-    return null;
-  }
-
-  async function fetchChannelInfo(channelId: string): Promise<any | null> {
-    if (!browser || !channelId) return null;
-    const current = currentUsername;
-    const myId = authUser?.id || '';
-    const existing = channels.find(c => c.id === channelId || c.name === channelId);
-    if (existing && existing.type && (!existing.targetUser || (existing.targetUser.username !== current && existing.targetUser.id !== myId))) {
-      return existing;
-    }
-
-    try {
-      const base = getApiBase();
-      const headers: Record<string, string> = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      const res = await fetch(`${base}/api/chat/channel/${encodeURIComponent(channelId)}?username=${encodeURIComponent(current)}&userId=${encodeURIComponent(myId)}`, { headers });
-      if (res.ok) {
-        const chanData = await res.json();
-        // Discard targetUser if it accidentally matches ourselves
-        const safeTargetUser = (chanData.targetUser && (chanData.targetUser.username === current || chanData.targetUser.id === myId))
-          ? null
-          : chanData.targetUser;
-
-        const formatted = {
-          id: chanData.id,
-          name: chanData.name,
-          type: chanData.type,
-          description: chanData.description,
-          createdAt: chanData.createdAt,
-          targetUser: safeTargetUser || existing?.targetUser || null
-        };
-        const idx = channels.findIndex(c => c.id === formatted.id);
-        if (idx !== -1) {
-          channels[idx] = { ...channels[idx], ...formatted };
-          channels = [...channels];
-        } else {
-          channels = [...channels, formatted];
-        }
-        return formatted;
-      }
-    } catch (e) {
-      console.error('Failed to fetch channel info', e);
-    }
-    return null;
-  }
-
-  async function createChannel(name: string): Promise<Channel | null> {
-    try {
-      const base = getApiBase();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-      }
-
-      const res = await fetch(`${base}/api/chat/channels`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ name })
-      });
-      if (res.ok) {
-        const newChan: Channel = await res.json();
-        if (!channels.some(c => c.id === newChan.id)) {
-          channels = [...channels, newChan];
-        }
-        return newChan;
-      }
-    } catch (e) {
-      console.error('Failed to create channel', e);
-    }
-    return null;
-  }
-
-  async function sendTyping(channelId: string, isTyping: boolean) {
-    if (!browser || !channelId) return;
-    try {
-      const base = getApiBase();
-      await fetch(`${base}/api/chat/typing/${channelId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: currentUsername,
-          isTyping
-        })
-      });
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  async function markAsRead(channelId: string, messageIds: string[]) {
-    if (!browser || !channelId || messageIds.length === 0) return;
-    try {
-      const base = getApiBase();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-      await fetch(`${base}/api/chat/read/${encodeURIComponent(channelId)}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          messageIds,
-          readerUsername: currentUsername
-        })
-      });
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  async function reactToMessage(messageId: string, emoji: string) {
-    if (!activeChannelId) return;
-
-    // Optimistic update for instant WhatsApp-style reaction feedback
-    const chanMsgs = messages[activeChannelId] || [];
-    const msg = chanMsgs.find(m => m.id === messageId);
-    if (msg) {
-      const currentList = Array.isArray(msg.reactions) ? [...msg.reactions] : [];
-      const userIdx = currentList.findIndex(r => r.username === currentUsername);
-
-      if (userIdx > -1) {
-        if (currentList[userIdx].emoji === emoji) {
-          // Toggle off
-          currentList.splice(userIdx, 1);
-        } else {
-          // Replace
-          currentList[userIdx] = { emoji, username: currentUsername };
-        }
-      } else {
-        currentList.push({ emoji, username: currentUsername });
-      }
-      msg.reactions = currentList;
-    }
-
-    try {
-      const base = getApiBase();
-      await fetch(`${base}/api/chat/react/${activeChannelId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId,
-          emoji,
-          username: currentUsername
-        })
-      });
-    } catch (e) {
-      console.error('Failed to add reaction', e);
-    }
-  }
-
-  async function togglePinMessage(messageId: string, isPinned: boolean) {
-    if (!activeChannelId) return;
-    try {
-      const base = getApiBase();
-      await fetch(`${base}/api/chat/pin/${activeChannelId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId,
-          isPinned
-        })
-      });
-    } catch (e) {
-      console.error('Failed to toggle pin', e);
-    }
-  }
-
-  async function deleteMessage(messageId: string) {
-    if (!activeChannelId) return;
-    try {
-      const base = getApiBase();
-      const res = await fetch(`${base}/api/chat/${activeChannelId}/${messageId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (!res.ok) {
-        console.error('Failed to delete message');
-      }
-    } catch (e) {
-      console.error('Error deleting message', e);
-    }
-  }
-
-  let isSoundEnabled = $state(true);
-
-  if (browser) {
-    const savedSound = localStorage.getItem('rsud_sound_enabled');
-    if (savedSound !== null) {
-      isSoundEnabled = savedSound === 'true';
-    }
-  }
-
-  function toggleSound() {
-    isSoundEnabled = !isSoundEnabled;
-    if (browser) {
-      localStorage.setItem('rsud_sound_enabled', isSoundEnabled.toString());
-      if (isSoundEnabled) {
-        playIncomingNotificationSound();
-      }
-    }
-  }
-
-  function playIncomingNotificationSound() {
-    if (!browser || !isSoundEnabled) return;
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const now = ctx.currentTime;
-
-      // WhatsApp style 2-tone melodic pop chime
-      // Tone 1: E5 (659Hz) -> A5 (880Hz)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(659.25, now);
-      osc1.frequency.exponentialRampToValueAtTime(880, now + 0.08);
-      gain1.gain.setValueAtTime(0.2, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.15);
-
-      // Tone 2: D6 (1174Hz) -> E6 (1318Hz)
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1174.66, now + 0.08);
-      osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.18);
-      gain2.gain.setValueAtTime(0, now);
-      gain2.gain.setValueAtTime(0.25, now + 0.08);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.08);
-      osc2.stop(now + 0.35);
-    } catch (e) {
-      console.warn('Notification audio failed', e);
-    }
-  }
-
-  const channelAliasMap: Record<string, string> = {};
-
-  function getCanonicalId(idOrName: string | null | undefined): string {
-    if (!idOrName) return '';
-    const match = channels.find(c => c.id === idOrName || c.name === idOrName);
-    return match ? match.id : idOrName;
-  }
-
-  async function sendChatMessage(channelId: string, text: string, files: any[] = [], replyToId?: string): Promise<boolean> {
-    if (!browser || (!text.trim() && files.length === 0) || !channelId) return false;
-
-    // Always resolve to canonical UUID for consistent state management
-    const canonId = getCanonicalId(channelId);
-    const storeKey = canonId || channelId; // Primary key for messages state
-
-    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    const optimisticMsg: ChatMessage = {
-      id: tempId,
-      channelId: storeKey,
-      text: text.trim(),
-      status: 'sending',
-      replyToId: replyToId || null,
-      attachments: files.length > 0 ? files : null,
-      reactions: [],
-      isPinned: false,
-      sender: { id: authUser?.id || 'me', username: currentUsername },
-      timestamp: new Date().toISOString(),
-      type: 'message'
-    };
-
-    // Optimistically append under both UUID and alias
-    const existingList = messages[storeKey] || messages[channelId] || [];
-    messages[storeKey] = [...existingList, optimisticMsg];
-    if (channelId !== storeKey) messages[channelId] = messages[storeKey];
-
-    // Optimistically update channel's last message and float to top
-    const targetCh = channels.find(c => c.id === storeKey || c.name === storeKey || c.id === channelId || c.name === channelId);
-    if (targetCh) {
-      targetCh.lastMessage = {
-        text: optimisticMsg.text,
-        senderName: 'Anda',
-        attachments: optimisticMsg.attachments,
-        createdAt: optimisticMsg.timestamp
-      };
-      channels = [...channels].sort((a, b) => {
-        const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
-        const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
-        return timeB - timeA;
-      });
-    }
-
-    try {
-      const base = getApiBase();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-      const res = await fetch(`${base}/api/chat/send/${encodeURIComponent(channelId)}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          message: text.trim(),
-          senderName: currentUsername,
-          replyToId,
-          attachments: files.length > 0 ? files : undefined
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const confirmedId = data.messageId || data.message?.id || tempId;
-        const confirmedChannelId = data.message?.channelId || storeKey;
-        const confirmedStatus = data.message?.status || 'delivered';
-
-        // Register alias between input name and confirmed UUID
-        if (confirmedChannelId !== channelId) {
-          channelAliasMap[channelId] = confirmedChannelId;
-          channelAliasMap[confirmedChannelId] = channelId;
-        }
-
-        // Update temp message in all keys
-        const allKeys = new Set([storeKey, channelId, confirmedChannelId].filter(Boolean));
-        for (const key of allKeys) {
-          const list = messages[key] || [];
-          const idx = list.findIndex(m => m.id === tempId);
-          if (idx > -1) {
-            list[idx] = { ...list[idx], id: confirmedId, channelId: confirmedChannelId, status: confirmedStatus };
-            messages[key] = [...list];
-          }
-        }
-        return true;
-      } else {
-        const list = messages[storeKey] || [];
-        const idx = list.findIndex(m => m.id === tempId);
-        if (idx > -1) {
-          list[idx] = { ...list[idx], status: 'error' as any };
-          messages[storeKey] = [...list];
-          if (channelId !== storeKey) messages[channelId] = [...list];
-        }
-        return false;
-      }
-    } catch (e) {
-      console.error('Error sending message', e);
-      const list = messages[storeKey] || [];
-      const idx = list.findIndex(m => m.id === tempId);
-      if (idx > -1) {
-        list[idx] = { ...list[idx], status: 'error' as any };
-        messages[storeKey] = [...list];
-        if (channelId !== storeKey) messages[channelId] = [...list];
-      }
-      return false;
-    }
-  }
-
-  function connect(channelId: string) {
-    if (!browser) return;
-    const canonId = getCanonicalId(channelId);
-    if (eventSource && isConnected && (activeChannelId === channelId || (canonId && activeChannelId === canonId))) {
-      return;
-    }
-
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
-    }
-    
-    activeChannelId = channelId;
-    // Init message arrays for both channel name and UUID
-    if (!messages[channelId]) messages[channelId] = [];
-    if (canonId && canonId !== channelId && !messages[canonId]) messages[canonId] = messages[channelId];
-
-    const base = getApiBase();
-    const url = `${base}/api/chat/sse/${encodeURIComponent(channelId)}?username=${encodeURIComponent(currentUsername)}`;
-    eventSource = new EventSource(url, { withCredentials: true });
-    
-    eventSource.onopen = () => {
-      isConnected = true;
-      resetHeartbeatWatchdog(channelId);
-    };
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const canon = getCanonicalId(data.channelId || channelId);
-        
-        if (data.type === 'connected') {
-          isConnected = true;
-          if (data.channelId) {
-            // Register bidirectional alias (channelName <-> UUID)
-            channelAliasMap[channelId] = data.channelId;
-            channelAliasMap[data.channelId] = channelId;
-            // Sync messages: if we have data under name but not UUID, copy it
-            if (!messages[data.channelId] || messages[data.channelId].length === 0) {
-              messages[data.channelId] = messages[channelId] || [];
-            } else if (!messages[channelId] || messages[channelId].length === 0) {
-              messages[channelId] = messages[data.channelId];
-            }
-            // Switch activeChannelId to UUID so SSE events (which come with UUID) always match
-            activeChannelId = data.channelId;
-          }
-          if (data.onlineCount !== undefined) onlineCount = data.onlineCount;
-          if (data.onlineUsers) onlineUsers = data.onlineUsers;
-          if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
-            onlineUsernames = new Set(data.globalOnlineUsers);
-          }
-          return;
-        }
-
-        if (data.type === 'heartbeat') {
-          isConnected = true;
-          return;
-        }
-
-        if (data.type === 'presence') {
-          onlineCount = data.onlineCount || 1;
-          onlineUsers = data.onlineUsers || [];
-          if (data.globalOnlineUsers && Array.isArray(data.globalOnlineUsers)) {
-            onlineUsernames = new Set(data.globalOnlineUsers);
-          }
-          return;
-        }
-
-        if (data.type === 'user_presence') {
-          if (data.isOnline) {
-            onlineUsernames.add(data.username);
-          } else {
-            onlineUsernames.delete(data.username);
-          }
-          onlineUsernames = new Set(onlineUsernames);
-          return;
-        }
-
-        if (data.type === 'typing') {
-          if (data.username !== currentUsername) {
-            const keys = new Set([
-              channelId,
-              canon,
-              data.channelId,
-              data.aliasChannelId,
-              data.username,
-              activeChannelId
-            ].filter(Boolean) as string[]);
-
-            for (const k of keys) {
-              const list = typingUsersMap[k] || [];
-              if (data.isTyping) {
-                if (!list.includes(data.username)) {
-                  typingUsersMap[k] = [...list, data.username];
-                }
-                const timerKey = `${k}_${data.username}`;
-                if (typingClearTimers[timerKey]) clearTimeout(typingClearTimers[timerKey]);
-                typingClearTimers[timerKey] = setTimeout(() => {
-                  if (typingUsersMap[k]) {
-                    typingUsersMap[k] = typingUsersMap[k].filter(u => u !== data.username);
-                  }
-                }, 4000);
-              } else {
-                typingUsersMap[k] = list.filter(u => u !== data.username);
-              }
-            }
-          }
-          return;
-        }
-
-        if (data.type === 'read_receipt') {
-          const resolvedKeys = new Set([
-            channelId,
-            canon,
-            data.channelId,
-            data.aliasChannelId,
-            channelAliasMap[channelId],
-            channelAliasMap[data.channelId]
-          ].filter(Boolean) as string[]);
-
-          const ids = new Set(data.messageIds || []);
-          for (const key of resolvedKeys) {
-            const list = messages[key] || [];
-            let updated = false;
-            list.forEach(m => {
-              if (ids.has(m.id)) {
-                m.status = 'read';
-                updated = true;
-              }
-            });
-            if (updated) {
-              messages[key] = [...list];
-            }
-          }
-          return;
-        }
-
-        if (data.type === 'reaction') {
-          const list = messages[canon] || messages[channelId] || [];
-          const msg = list.find(m => m.id === data.messageId);
-          if (msg) {
-            msg.reactions = data.reactions;
-            messages[canon] = [...list];
-            messages[channelId] = [...list];
-          }
-          return;
-        }
-
-        if (data.type === 'pin') {
-          const list = messages[canon] || messages[channelId] || [];
-          const msg = list.find(m => m.id === data.messageId);
-          if (msg) {
-            msg.isPinned = data.isPinned;
-            messages[canon] = [...list];
-            messages[channelId] = [...list];
-          }
-          return;
-        }
-
-        if (data.type === 'delete') {
-          const list = messages[canon] || messages[channelId] || [];
-          const updated = list.filter(m => m.id !== data.messageId);
-          messages[canon] = updated;
-          messages[channelId] = updated;
-          // Remove from IndexedDB local cache
-          if (browser) deleteMessageFromLocal(data.messageId);
-          return;
-        }
-
-        if (data.type === 'message' || data.type === 'webhook_inbound') {
-          const resolvedKeys = new Set([channelId, canon, data.channelId, channelAliasMap[channelId], channelAliasMap[data.channelId]].filter(Boolean) as string[]);
-
-          const newMsg: ChatMessage = {
-            id: data.id,
-            channelId: data.channelId,
-            text: data.text || data.content,
-            status: data.status || 'delivered',
-            replyToId: data.replyToId || null,
-            attachments: data.attachments || null,
-            reactions: data.reactions || [],
-            isPinned: data.isPinned || false,
-            sender: data.sender || { id: 'guest', username: 'Staff' },
-            timestamp: data.timestamp || new Date().toISOString(),
-            type: data.type
-          };
-
-          for (const key of resolvedKeys) {
-            const list = messages[key] || [];
-            const tempIdx = list.findIndex(m => m.id.startsWith('temp_') && m.text === newMsg.text && (m.sender?.username || m.sender) === (newMsg.sender?.username || newMsg.sender));
-            if (tempIdx > -1) {
-              list[tempIdx] = newMsg;
-              messages[key] = [...list];
-            } else if (!list.some(m => m.id === data.id)) {
-              messages[key] = [...list, newMsg];
-            }
-          }
-
-          // Persist to IndexedDB for local-first caching
-          if (browser) {
-            saveMessagesToLocal([newMsg]);
-          }
-
-          // Update channel's lastMessage and re-sort channels
-          const chMatch = channels.find(c => c.id === data.channelId || c.name === data.channelId || resolvedKeys.has(c.id) || resolvedKeys.has(c.name));
-          if (chMatch) {
-            chMatch.lastMessage = {
-              text: newMsg.text,
-              senderName: (newMsg.sender?.username || newMsg.sender) === currentUsername ? 'Anda' : (newMsg.sender?.displayName || newMsg.sender?.username || 'Staff RSUD'),
-              attachments: newMsg.attachments,
-              createdAt: newMsg.timestamp
-            };
-            channels = [...channels].sort((a, b) => {
-              const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
-              const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
-              return timeB - timeA;
-            });
-          }
-
-          if (data.sender?.username !== currentUsername) {
-            playIncomingNotificationSound();
-            markAsRead(channelId, [data.id]);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse SSE message', e);
-      }
-    };
-    
-    eventSource.onerror = () => {
-      isConnected = false;
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
-      // Auto-reconnect automatically without requiring manual page refresh
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => {
-        if (activeChannelId && browser) {
-          console.log('🔄 Reconnecting SSE for channel:', activeChannelId);
-          connect(activeChannelId);
-        }
-      }, 2000);
-    };
-  }
-
-  function disconnect() {
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (heartbeatWatchdog) clearTimeout(heartbeatWatchdog);
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
-    }
-    isConnected = false;
-  }
-
-  function setMessages(channelId: string, newMessages: ChatMessage[]) {
-    const canonId = getCanonicalId(channelId);
-    const aliasId = channelAliasMap[channelId];
-
-    messages[channelId] = newMessages;
-    if (canonId) messages[canonId] = newMessages;
-    if (aliasId) messages[aliasId] = newMessages;
-
-    // Auto mark all unread messages from others as read
-    const unreadIds = newMessages
-      .filter(m => m.sender?.username !== currentUsername && m.status !== 'read')
-      .map(m => m.id);
-    if (unreadIds.length > 0) {
-      markAsRead(channelId, unreadIds);
-    }
-  }
-
-  function prependMessages(channelId: string, olderMessages: ChatMessage[]) {
-    const canonId = getCanonicalId(channelId);
-    const aliasId = channelAliasMap[channelId];
-    const current = (messages[channelId] && messages[channelId].length > 0) 
-      ? messages[channelId] 
-      : ((canonId && messages[canonId]?.length) ? messages[canonId] : (aliasId && messages[aliasId]?.length) ? messages[aliasId] : []);
-    
-    const existingIds = new Set(current.map(m => m.id));
-    const uniqueOlder = olderMessages.filter(m => !existingIds.has(m.id));
-    const merged = [...uniqueOlder, ...current];
-
-    messages[channelId] = merged;
-    if (canonId) messages[canonId] = merged;
-    if (aliasId) messages[aliasId] = merged;
-  }
-
+// Re-export all domain types
+export type {
+  Channel,
+  ChannelType,
+  LastMessagePreview,
+  User,
+  UserRole,
+  AuthUser,
+  AuthResult,
+  AuthResponse,
+  ChatMessage,
+  MessageStatus,
+  MessageType,
+  Attachment,
+  Reaction,
+  MessageSender,
+  MessageGroup,
+  TypingPayload,
+  PresencePayload,
+  AdminStats,
+  SystemSettings
+} from '$lib/types';
+
+// Re-export utility functions for backward compatibility
+export {
+  formatWhatsAppTimestamp,
+  formatDateHeader,
+  formatMessageTime,
+  playIncomingNotificationSound,
+  getApiBase,
+  getAuthHeaders
+} from '$lib/utils';
+
+// Import sub-stores
+import { authStore } from './auth.svelte';
+import { presenceStore } from './presence.svelte';
+import { channelsStore } from './channels.svelte';
+import { messagesStore } from './messages.svelte';
+import { connectionStore } from './connection.svelte';
+import { playIncomingNotificationSound } from '$lib/utils';
+import type { ChatMessage, Attachment, Channel, User, AuthResult } from '$lib/types';
+
+/**
+ * Unified Chat Store Facade.
+ * Aggregates Auth, Presence, Channels, Messages, and Connection stores
+ * providing 100% backward-compatible API surface with strict TypeScript typing.
+ */
+export function createChatStoreFacade() {
   return {
-    get messages() {
-      if (!activeChannelId) return [];
-      const canonId = getCanonicalId(activeChannelId);
-      const aliasId = channelAliasMap[activeChannelId];
+    // --- Message State ---
+    get messages(): ChatMessage[] {
+      return messagesStore.getChannelMessages(connectionStore.activeChannelId);
+    },
+    get rawMessages(): Record<string, ChatMessage[]> {
+      return messagesStore.rawMessages;
+    },
+    get replyingToMessage(): ChatMessage | null {
+      return messagesStore.replyingToMessage;
+    },
+    set replyingToMessage(val: ChatMessage | null) {
+      messagesStore.replyingToMessage = val;
+    },
+    get isSoundEnabled(): boolean {
+      return messagesStore.isSoundEnabled;
+    },
+    toggleSound(): void {
+      messagesStore.toggleSound();
+    },
+    playIncomingNotificationSound(): void {
+      playIncomingNotificationSound(messagesStore.isSoundEnabled);
+    },
+    sendChatMessage(channelId: string, text: string, files: Attachment[] = [], replyToId?: string): Promise<boolean> {
+      return messagesStore.sendChatMessage(channelId, text, files, replyToId);
+    },
+    setMessages(channelId: string, newMessages: ChatMessage[]): void {
+      messagesStore.setMessages(channelId, newMessages);
+    },
+    prependMessages(channelId: string, olderMessages: ChatMessage[]): void {
+      messagesStore.prependMessages(channelId, olderMessages);
+    },
+    markAsRead(channelId: string, messageIds: string[]): Promise<void> {
+      return messagesStore.markAsRead(channelId, messageIds);
+    },
+    reactToMessage(messageId: string, emoji: string): Promise<void> {
+      return messagesStore.reactToMessage(connectionStore.activeChannelId, messageId, emoji);
+    },
+    togglePinMessage(messageId: string, isPinned: boolean): Promise<void> {
+      return messagesStore.togglePinMessage(connectionStore.activeChannelId, messageId, isPinned);
+    },
+    deleteMessage(messageId: string): Promise<void> {
+      return messagesStore.deleteMessage(connectionStore.activeChannelId, messageId);
+    },
 
-      // Collect all message lists from all known keys for this channel
-      const allKeys = new Set([activeChannelId, canonId, aliasId].filter(Boolean) as string[]);
-      const seenIds = new Set<string>();
-      const merged: ChatMessage[] = [];
+    // --- Connection State ---
+    get isConnected(): boolean {
+      return connectionStore.isConnected;
+    },
+    get activeChannelId(): string | null {
+      return connectionStore.activeChannelId;
+    },
+    connect(channelId: string): void {
+      connectionStore.connect(channelId);
+    },
+    disconnect(): void {
+      connectionStore.disconnect();
+    },
 
-      // Collect messages from all keys and deduplicate by ID
-      for (const key of allKeys) {
-        const list = messages[key] || [];
-        for (const m of list) {
-          if (!seenIds.has(m.id)) {
-            seenIds.add(m.id);
-            merged.push(m);
-          }
-        }
-      }
-
-      // Sort by timestamp
-      merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      return merged;
+    // --- Channel State ---
+    get channels(): Channel[] {
+      return channelsStore.channels;
     },
-    get isConnected() {
-      return isConnected;
+    set channels(val: Channel[]) {
+      channelsStore.channels = val;
     },
-    get activeChannelId() {
-      return activeChannelId;
+    get isLoadingChannels(): boolean {
+      return channelsStore.isLoadingChannels;
     },
-    get channels() {
-      return channels;
+    get usersList(): User[] {
+      return channelsStore.usersList;
     },
-    get isLoadingChannels() {
-      return isLoadingChannels;
-    },
-    get authUser() {
-      return authUser;
-    },
-    get authToken() {
-      return authToken;
-    },
-    get currentUsername() {
-      return authUser?.username || guestNickname;
-    },
-    get onlineUsers() {
-      return onlineUsers;
-    },
-    get onlineUsernames() {
-      return onlineUsernames;
-    },
-    isUserOnline(username?: string): boolean {
-      if (!username) return false;
-      return onlineUsernames.has(username);
-    },
-    get onlineCount() {
-      return onlineCount;
-    },
-    get currentTypingUsers() {
-      return activeChannelId ? (typingUsersMap[activeChannelId] || []) : [];
-    },
-    getTypingUsers(key?: string | null): string[] {
-      if (!key) return [];
-      return typingUsersMap[key] || [];
-    },
-    isTypingInChannel(key?: string | null): boolean {
-      if (!key) return false;
-      return (typingUsersMap[key] || []).length > 0;
-    },
-    get replyingToMessage() {
-      return replyingToMessage;
-    },
-    set replyingToMessage(val) {
-      replyingToMessage = val;
-    },
-    get usersList() {
-      return usersList;
-    },
-    get isLoadingUsers() {
-      return isLoadingUsers;
-    },
-    get isSoundEnabled() {
-      return isSoundEnabled;
+    get isLoadingUsers(): boolean {
+      return channelsStore.isLoadingUsers;
     },
     get systemSettings() {
-      return systemSettings;
+      return channelsStore.systemSettings;
     },
-    get isLoadingSettings() {
-      return isLoadingSettings;
+    get isLoadingSettings(): boolean {
+      return channelsStore.isLoadingSettings;
     },
-    loadSystemSettings,
-    toggleSound,
-    playIncomingNotificationSound,
-    fetchChannelInfo,
-    login,
-    register,
-    updateProfile,
-    logout,
-    setGuestNickname,
-    loadChannels,
-    createChannel,
-    loadUsers,
-    startDirectMessage,
-    sendChatMessage,
-    sendTyping,
-    markAsRead,
-    reactToMessage,
-    togglePinMessage,
-    deleteMessage,
-    connect,
-    disconnect,
-    setMessages,
-    prependMessages
+    loadChannels(): Promise<void> {
+      return channelsStore.loadChannels();
+    },
+    createChannel(name: string): Promise<Channel | null> {
+      return channelsStore.createChannel(name);
+    },
+    loadUsers(): Promise<void> {
+      return channelsStore.loadUsers();
+    },
+    startDirectMessage(targetUserId: string): Promise<Channel | null> {
+      return channelsStore.startDirectMessage(targetUserId);
+    },
+    fetchChannelInfo(channelId: string): Promise<Channel | null> {
+      return channelsStore.fetchChannelInfo(channelId);
+    },
+    loadSystemSettings(): Promise<void> {
+      return channelsStore.loadSystemSettings();
+    },
+
+    // --- Auth State ---
+    get authUser(): User | null {
+      return authStore.authUser;
+    },
+    get authToken(): string | null {
+      return authStore.authToken;
+    },
+    get guestNickname(): string {
+      return authStore.guestNickname;
+    },
+    get currentUsername(): string {
+      return authStore.currentUsername;
+    },
+    setGuestNickname(name: string): void {
+      authStore.setGuestNickname(name);
+    },
+    login(username: string, password: string): Promise<AuthResult> {
+      return authStore.login(username, password);
+    },
+    register(username: string, password: string): Promise<AuthResult> {
+      return authStore.register(username, password);
+    },
+    updateProfile(displayName: string, avatarUrl?: string): Promise<AuthResult> {
+      return authStore.updateProfile(displayName, avatarUrl);
+    },
+    logout(): void {
+      authStore.logout();
+    },
+
+    // --- Presence State ---
+    get onlineUsers(): string[] {
+      return presenceStore.onlineUsers;
+    },
+    get onlineUsernames(): Set<string> {
+      return presenceStore.onlineUsernames;
+    },
+    get onlineCount(): number {
+      return presenceStore.onlineCount;
+    },
+    isUserOnline(username?: string): boolean {
+      return presenceStore.isUserOnline(username);
+    },
+    get currentTypingUsers(): string[] {
+      return connectionStore.activeChannelId ? presenceStore.getTypingUsers(connectionStore.activeChannelId) : [];
+    },
+    getTypingUsers(key?: string | null): string[] {
+      return presenceStore.getTypingUsers(key);
+    },
+    isTypingInChannel(key?: string | null): boolean {
+      return presenceStore.isTypingInChannel(key);
+    },
+    sendTyping(channelId: string, isTyping: boolean): Promise<void> {
+      return presenceStore.sendTyping(channelId, isTyping);
+    }
   };
 }
 
-export const chatStore = createChatStore();
+export const chatStore = createChatStoreFacade();
+export { authStore, presenceStore, channelsStore, messagesStore, connectionStore };

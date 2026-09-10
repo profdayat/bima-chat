@@ -1,17 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { chatStore, getApiBase, type Channel } from '$lib/stores/chat.svelte';
+  import { chatStore, type User, type AdminStats } from '$lib/stores/chat.svelte';
   import { uiStore } from '$lib/stores/ui.svelte';
-  import { goto } from '$app/navigation';
+  import { getApiBase, getAuthHeaders } from '$lib/utils';
 
-  let activeTab = $state<'stats' | 'users' | 'channels' | 'settings'>('stats');
-  let stats = $state({ users: 0, messages: 0, channels: 0 });
-  let usersList = $state<any[]>([]);
+  import AdminStatsTab from '$lib/components/admin/AdminStatsTab.svelte';
+  import AdminUsersTab from '$lib/components/admin/AdminUsersTab.svelte';
+  import AdminChannelsTab from '$lib/components/admin/AdminChannelsTab.svelte';
+  import AdminSettingsTab from '$lib/components/admin/AdminSettingsTab.svelte';
+
+  type AdminTab = 'stats' | 'users' | 'channels' | 'settings';
+
+  let activeTab = $state<AdminTab>('stats');
+  let stats = $state<AdminStats>({ users: 0, messages: 0, channels: 0 });
+  let usersList = $state<User[]>([]);
   let isLoading = $state(false);
   let actionMessage = $state('');
   let userSearch = $state('');
+
   let isCreatingChannel = $state(false);
-  let newChannelName = $state('');
   let isSubmittingChannel = $state(false);
 
   // System Settings state
@@ -20,40 +27,25 @@
   let isSavingSettings = $state(false);
 
   onMount(() => {
-    if (!chatStore.authUser || chatStore.authUser.role !== 'admin') {
-      // Allow a brief check or stay on page with access-denied state
-    }
     loadData();
     loadSettings();
     chatStore.loadChannels();
   });
 
-  let filteredUsers = $derived(
-    usersList.filter(u =>
-      (u.displayName || u.username || '').toLowerCase().includes(userSearch.toLowerCase()) ||
-      (u.role || '').toLowerCase().includes(userSearch.toLowerCase())
-    )
-  );
-
-  async function loadData() {
+  async function loadData(): Promise<void> {
     isLoading = true;
     actionMessage = '';
     const base = getApiBase();
     try {
-      // Fetch stats
-      const statsRes = await fetch(`${base}/api/admin/stats`, {
-        headers: { 'Authorization': `Bearer ${chatStore.authToken}` }
-      });
+      const headers = getAuthHeaders(chatStore.authToken);
+      const statsRes = await fetch(`${base}/api/admin/stats`, { headers });
       if (statsRes.ok) {
-        stats = await statsRes.json();
+        stats = (await statsRes.json()) as AdminStats;
       }
 
-      // Fetch users
-      const usersRes = await fetch(`${base}/api/admin/users`, {
-        headers: { 'Authorization': `Bearer ${chatStore.authToken}` }
-      });
+      const usersRes = await fetch(`${base}/api/admin/users`, { headers });
       if (usersRes.ok) {
-        usersList = await usersRes.json();
+        usersList = (await usersRes.json()) as User[];
       }
     } catch (e) {
       console.error('Error loading admin data:', e);
@@ -62,128 +54,119 @@
     }
   }
 
-  async function updateUserStatus(userId: string, currentStatus: string) {
-    const nextStatus = currentStatus === 'true' ? 'false' : 'true';
+  async function updateUserStatus(userId: string, currentStatus: string | boolean | undefined): Promise<void> {
+    const nextStatus = (currentStatus === 'true' || currentStatus === true) ? 'false' : 'true';
     const base = getApiBase();
     try {
       const res = await fetch(`${base}/api/admin/users/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${chatStore.authToken}`
-        },
+        headers: getAuthHeaders(chatStore.authToken),
         body: JSON.stringify({
           role: usersList.find(u => u.id === userId)?.role || 'staff',
           isActive: nextStatus
         })
       });
       if (res.ok) {
-        actionMessage = `Status akun berhasil diubah menjadi ${nextStatus === 'true' ? 'Aktif' : 'Suspended'}`;
+        actionMessage = `Status pengguna berhasil diperbarui ke: ${nextStatus === 'true' ? 'Aktif' : 'Suspended'}`;
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to update user status', e);
     }
   }
 
-  async function updateUserRole(userId: string, currentRole: string) {
+  async function updateUserRole(userId: string, currentRole: string): Promise<void> {
     const nextRole = currentRole === 'admin' ? 'staff' : 'admin';
     const base = getApiBase();
     try {
       const res = await fetch(`${base}/api/admin/users/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${chatStore.authToken}`
-        },
+        headers: getAuthHeaders(chatStore.authToken),
         body: JSON.stringify({
           role: nextRole,
           isActive: usersList.find(u => u.id === userId)?.isActive || 'true'
         })
       });
       if (res.ok) {
-        actionMessage = `Role pengguna berhasil diubah menjadi ${nextRole.toUpperCase()}`;
+        actionMessage = `Role pengguna berhasil diubah menjadi: ${nextRole.toUpperCase()}`;
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to update user role', e);
     }
   }
 
-  async function handleDeleteChannel(channelId: string, channelName: string) {
-    if (!confirm(`Hapus channel #${channelName}? Semua pesan di dalamnya akan terhapus secara permanen!`)) return;
-    const base = getApiBase();
+  async function handleCreateChannel(name: string): Promise<void> {
+    isSubmittingChannel = true;
     try {
-      const res = await fetch(`${base}/api/admin/channels/${channelId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${chatStore.authToken}` }
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/admin/channels`, {
+        method: 'POST',
+        headers: getAuthHeaders(chatStore.authToken),
+        body: JSON.stringify({ name })
       });
       if (res.ok) {
-        actionMessage = `Channel #${channelName} berhasil dihapus!`;
+        actionMessage = `Channel #${name} berhasil dibuat.`;
+        isCreatingChannel = false;
         chatStore.loadChannels();
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error creating channel', e);
+    } finally {
+      isSubmittingChannel = false;
     }
   }
 
-  async function handleCreateChannel(e: Event) {
-    e.preventDefault();
-    if (!newChannelName.trim() || isSubmittingChannel) return;
-    isSubmittingChannel = true;
-    const created = await chatStore.createChannel(newChannelName.trim());
-    isSubmittingChannel = false;
-    if (created) {
-      actionMessage = `Channel #${created.name} berhasil dibuat!`;
-      newChannelName = '';
-      isCreatingChannel = false;
-      loadData();
+  async function handleDeleteChannel(channelId: string, channelName: string): Promise<void> {
+    if (!confirm(`Apakah Anda yakin ingin menghapus channel #${channelName}? Seluruh riwayat pesan di channel ini akan dihapus secara permanen.`)) {
+      return;
     }
-  }
-
-  async function loadSettings() {
-    const base = getApiBase();
     try {
-      const res = await fetch(`${base}/api/admin/settings`, {
-        headers: { 'Authorization': `Bearer ${chatStore.authToken}` }
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/admin/channels/${channelId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(chatStore.authToken)
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.settings) {
-          allowGuest = data.settings.allowGuest;
-          allowRegistration = data.settings.allowRegistration;
-        }
+        actionMessage = `Channel #${channelName} berhasil dihapus.`;
+        chatStore.loadChannels();
+        loadData();
       }
     } catch (e) {
-      console.error('Error loading settings:', e);
+      console.error('Error deleting channel', e);
     }
   }
 
-  async function handleSaveSettings() {
+  async function loadSettings(): Promise<void> {
+    try {
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/settings/public`);
+      if (res.ok) {
+        const data = (await res.json()) as { allowGuest?: boolean; allowRegistration?: boolean };
+        allowGuest = data.allowGuest !== false;
+        allowRegistration = data.allowRegistration !== false;
+      }
+    } catch (e) {
+      console.error('Error loading settings', e);
+    }
+  }
+
+  async function handleSaveSettings(): Promise<void> {
     isSavingSettings = true;
-    const base = getApiBase();
     try {
-      const res = await fetch(`${base}/api/admin/settings`, {
+      const base = getApiBase();
+      const res = await fetch(`${base}/api/settings`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${chatStore.authToken}`
-        },
-        body: JSON.stringify({
-          allowGuest,
-          allowRegistration
-        })
+        headers: getAuthHeaders(chatStore.authToken),
+        body: JSON.stringify({ allowGuest, allowRegistration })
       });
       if (res.ok) {
-        actionMessage = 'Pengaturan sistem berhasil disimpan!';
+        actionMessage = 'Pengaturan sistem berhasil disimpan.';
         chatStore.loadSystemSettings();
-      } else {
-        actionMessage = 'Gagal menyimpan pengaturan sistem.';
       }
     } catch (e) {
-      console.error(e);
-      actionMessage = 'Terjadi kesalahan saat menyimpan pengaturan.';
+      console.error('Error saving settings', e);
     } finally {
       isSavingSettings = false;
     }
@@ -233,9 +216,11 @@
       <div class="flex items-center space-x-2 sm:space-x-3">
         <!-- Dark Mode Toggle -->
         <button
+          type="button"
           onclick={() => uiStore.toggleDarkMode()}
-          class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
+          class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition cursor-pointer"
           title="Ubah Mode Gelap/Terang"
+          aria-label="Ubah Mode Gelap atau Terang"
         >
           {#if uiStore.isDarkMode}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,7 +266,6 @@
           </a>
         </div>
       </div>
-
     {:else}
       <!-- Alert Message -->
       {#if actionMessage}
@@ -290,15 +274,16 @@
             <span>✓</span>
             <span>{actionMessage}</span>
           </div>
-          <button onclick={() => (actionMessage = '')} class="text-emerald-600 hover:text-emerald-800 text-sm">✕</button>
+          <button type="button" onclick={() => (actionMessage = '')} class="text-emerald-600 hover:text-emerald-800 text-sm cursor-pointer">✕</button>
         </div>
       {/if}
 
       <!-- Navigation Tabs -->
       <div class="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl p-1 shadow-xs overflow-x-auto">
         <button
+          type="button"
           onclick={() => (activeTab = 'stats')}
-          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2
+          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer
             {activeTab === 'stats'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
@@ -308,8 +293,9 @@
         </button>
 
         <button
+          type="button"
           onclick={() => (activeTab = 'users')}
-          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2
+          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer
             {activeTab === 'users'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
@@ -319,8 +305,9 @@
         </button>
 
         <button
+          type="button"
           onclick={() => (activeTab = 'channels')}
-          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2
+          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer
             {activeTab === 'channels'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
@@ -330,8 +317,9 @@
         </button>
 
         <button
+          type="button"
           onclick={() => (activeTab = 'settings')}
-          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2
+          class="flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer
             {activeTab === 'settings'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
@@ -341,410 +329,36 @@
         </button>
       </div>
 
-      <!-- Tab 1: Stats & Overview -->
+      <!-- Tab Content Panels -->
       {#if activeTab === 'stats'}
-        <div class="space-y-6 animate-fadeIn">
-          <!-- Metric Cards -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            <!-- Users Card -->
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs relative overflow-hidden group">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total User</p>
-                  <p class="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 mt-2">{stats.users}</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-xl shadow-inner">
-                  👥
-                </div>
-              </div>
-              <p class="text-[11px] text-gray-400 mt-3">Akun staff & admin terdaftar</p>
-            </div>
-
-            <!-- Messages Card -->
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs relative overflow-hidden group">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Pesan</p>
-                  <p class="text-3xl sm:text-4xl font-black text-teal-600 dark:text-teal-400 mt-2">{stats.messages}</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center text-xl shadow-inner">
-                  💬
-                </div>
-              </div>
-              <p class="text-[11px] text-gray-400 mt-3">Tersimpan di PostgreSQL database</p>
-            </div>
-
-            <!-- Channels Card -->
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs relative overflow-hidden group">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Channel Aktif</p>
-                  <p class="text-3xl sm:text-4xl font-black text-cyan-600 dark:text-cyan-400 mt-2">{stats.channels}</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center text-xl shadow-inner">
-                  #
-                </div>
-              </div>
-              <p class="text-[11px] text-gray-400 mt-3">Ruang chat poli & unit kerja</p>
-            </div>
-          </div>
-
-          <!-- Infrastructure & System Info -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Server Status -->
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs space-y-4">
-              <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span>⚡</span>
-                <span>Status Infrastruktur Realtime</span>
-              </h3>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-750 rounded-2xl">
-                  <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Backend Server (Elysia Bun)</span>
-                  <span class="px-2.5 py-1 text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Online (:8080)
-                  </span>
-                </div>
-                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-750 rounded-2xl">
-                  <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Database (PostgreSQL)</span>
-                  <span class="px-2.5 py-1 text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Connected (:5432)
-                  </span>
-                </div>
-                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-750 rounded-2xl">
-                  <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Pub/Sub Engine (Redis)</span>
-                  <span class="px-2.5 py-1 text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Connected (:6379)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Architecture Info -->
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs space-y-3">
-              <h3 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span>🛡️</span>
-                <span>Arsitektur & Keamanan</span>
-              </h3>
-              <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                Sistem chat RSUD Bangil menggunakan autentikasi berbasis JWT token, otorisasi peran (Role-Based Access Control) bertingkat, dan enkripsi password menggunakan algoritma Bcrypt.
-              </p>
-              <div class="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60 rounded-2xl">
-                <p class="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                  🚀 Blue-Green Zero Downtime Deployment
-                </p>
-                <p class="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-                  Pembaruan backend dan frontend dapat diterapkan kapan saja tanpa memutus koneksi realtime pengguna aktif.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      <!-- Tab 2: User Management -->
+        <AdminStatsTab {stats} />
       {:else if activeTab === 'users'}
-        <div class="space-y-4 animate-fadeIn">
-          <!-- Search & Filter Bar -->
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-200/80 dark:border-gray-700">
-            <div class="relative w-full sm:w-72">
-              <input
-                type="text"
-                bind:value={userSearch}
-                placeholder="Cari user berdasarkan nama / role..."
-                aria-label="Cari user berdasarkan nama atau role"
-                class="w-full text-xs py-2 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-white"
-              />
-              <span class="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
-            </div>
-            <button
-              onclick={loadData}
-              class="w-full sm:w-auto px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
-            >
-              <span>🔄</span>
-              <span>Refresh Data</span>
-            </button>
-          </div>
-
-          <!-- Users List Table -->
-          <div class="bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-gray-50 dark:bg-gray-750 text-gray-500 dark:text-gray-400 uppercase font-bold border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th class="py-3.5 px-4 sm:px-6">Pengguna</th>
-                    <th class="py-3.5 px-4">Role</th>
-                    <th class="py-3.5 px-4">Status</th>
-                    <th class="py-3.5 px-4 sm:px-6 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-150 dark:divide-gray-700">
-                  {#each filteredUsers as user (user.id)}
-                    <tr class="hover:bg-gray-50/80 dark:hover:bg-gray-750/50 transition">
-                      <!-- User Info -->
-                      <td class="py-3.5 px-4 sm:px-6">
-                        <div class="flex items-center gap-3">
-                          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-bold flex items-center justify-center text-xs shadow-sm shrink-0">
-                            {(user.displayName || user.username || '').slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p class="font-bold text-gray-900 dark:text-white text-sm">
-                              {user.displayName || user.username}
-                            </p>
-                            <p class="text-[11px] text-gray-400">@{user.username}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <!-- Role Badge -->
-                      <td class="py-3.5 px-4">
-                        <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold
-                          {user.role === 'admin'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'}">
-                          {user.role.toUpperCase()}
-                        </span>
-                      </td>
-
-                      <!-- Status Badge -->
-                      <td class="py-3.5 px-4">
-                        <span class="px-2.5 py-1 rounded-lg text-[11px] font-semibold
-                          {user.isActive === 'true'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'}">
-                          {user.isActive === 'true' ? 'Aktif' : 'Suspended'}
-                        </span>
-                      </td>
-
-                      <!-- Actions -->
-                      <td class="py-3.5 px-4 sm:px-6 text-right">
-                        {#if user.id !== chatStore.authUser?.id}
-                          <div class="flex items-center justify-end gap-2">
-                            <!-- Toggle Active/Suspend -->
-                            <button
-                              onclick={() => updateUserStatus(user.id, user.isActive)}
-                              class="py-1.5 px-3 rounded-xl text-xs font-bold transition
-                                {user.isActive === 'true'
-                                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300'
-                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'}"
-                            >
-                              {user.isActive === 'true' ? 'Suspend' : 'Aktifkan'}
-                            </button>
-
-                            <!-- Toggle Role -->
-                            <button
-                              onclick={() => updateUserRole(user.id, user.role)}
-                              class="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold transition"
-                            >
-                              Jadikan {user.role === 'admin' ? 'Staff' : 'Admin'}
-                            </button>
-                          </div>
-                        {:else}
-                          <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold italic">Akun Anda</span>
-                        {/if}
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      <!-- Tab 3: Channel Management -->
+        <AdminUsersTab
+          users={usersList}
+          searchQuery={userSearch}
+          onSearchChange={(q) => (userSearch = q)}
+          onRefresh={loadData}
+          onUpdateStatus={updateUserStatus}
+          onUpdateRole={updateUserRole}
+        />
       {:else if activeTab === 'channels'}
-        <div class="space-y-4 animate-fadeIn">
-          <!-- Create Channel Action Bar -->
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-200/80 dark:border-gray-700">
-            <div>
-              <h3 class="text-sm font-bold text-gray-900 dark:text-white">Daftar Ruang Chat (Channels)</h3>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Kelola channel resmi untuk komunikasi antar unit kerja</p>
-            </div>
-            <button
-              onclick={() => (isCreatingChannel = !isCreatingChannel)}
-              class="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
-            >
-              <span>+</span>
-              <span>Buat Channel Baru</span>
-            </button>
-          </div>
-
-          <!-- New Channel Inline Form -->
-          {#if isCreatingChannel}
-            <form onsubmit={handleCreateChannel} class="p-5 bg-emerald-50/80 dark:bg-gray-800 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3 animate-fadeIn">
-              <h4 class="text-xs font-bold text-emerald-900 dark:text-emerald-200">Form Tambah Channel Baru</h4>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  bind:value={newChannelName}
-                  placeholder="contoh: poli-bedah atau humas-rsud"
-                  aria-label="Nama channel baru"
-                  class="flex-1 text-xs py-2 px-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 text-gray-900 dark:text-white"
-                  required
-                />
-                <div class="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={!newChannelName.trim() || isSubmittingChannel}
-                    class="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50"
-                  >
-                    {isSubmittingChannel ? 'Menyimpan...' : 'Simpan Channel'}
-                  </button>
-                  <button
-                    type="button"
-                    onclick={() => (isCreatingChannel = false)}
-                    class="py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs rounded-xl transition"
-                  >
-                    Batal
-                  </button>
-                </div>
-              </div>
-            </form>
-          {/if}
-
-          <!-- Channels Grid -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each chatStore.channels as channel (channel.id)}
-              <div class="p-5 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs flex flex-col justify-between space-y-4 hover:border-emerald-300 transition">
-                <div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-base font-black text-gray-900 dark:text-white flex items-center gap-1">
-                      <span class="text-emerald-500">#</span>
-                      <span>{channel.name}</span>
-                    </span>
-                    {#if channel.name === 'general'}
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        Default
-                      </span>
-                    {/if}
-                  </div>
-                  <p class="text-[11px] text-gray-400 mt-1 font-mono">{channel.id}</p>
-                </div>
-
-                <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <a
-                    href="/chat/{channel.id}"
-                    class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>Masuk Channel</span>
-                    <span>&rarr;</span>
-                  </a>
-
-                  {#if channel.name !== 'general'}
-                    <button
-                      onclick={() => handleDeleteChannel(channel.id, channel.name)}
-                      class="py-1 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl text-xs font-bold transition"
-                    >
-                      Hapus
-                    </button>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
-
-      <!-- Tab 4: System Settings -->
-      {#if activeTab === 'settings'}
-        <div class="space-y-6 animate-fadeIn max-w-4xl mx-auto">
-          <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-3xl shadow-xs space-y-6">
-            <div>
-              <h3 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span>⚙️</span>
-                <span>Konfigurasi Akses & Pendaftaran Pengguna</span>
-              </h3>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Atur kebijakan pendaftaran akun dan aksesibilitas ruang obrolan untuk seluruh unit di RSUD Bangil.
-              </p>
-            </div>
-
-            <div class="divide-y divide-gray-100 dark:divide-gray-700 space-y-4 pt-2">
-              <!-- Setting 1: Mode Tamu (Guest Mode) -->
-              <div class="pt-4 flex items-center justify-between gap-4">
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2">
-                    <h4 class="text-sm font-bold text-gray-900 dark:text-white">Mode Tamu (Guest Access)</h4>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold
-                      {allowGuest ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'}">
-                      {allowGuest ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </div>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 max-w-xl">
-                    Mengizinkan staf atau tamu mengakses dan mengirim pesan di ruang obrolan secara langsung tanpa perlu mendaftar atau login akun resmi.
-                  </p>
-                </div>
-
-                <!-- Toggle Switch -->
-                <button
-                  type="button"
-                  onclick={() => (allowGuest = !allowGuest)}
-                  aria-label="Izinkan akses tamu tanpa login"
-                  class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden
-                    {allowGuest ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}"
-                  role="switch"
-                  aria-checked={allowGuest}
-                >
-                  <span
-                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out
-                      {allowGuest ? 'translate-x-5' : 'translate-x-0'}"
-                  ></span>
-                </button>
-              </div>
-
-              <!-- Setting 2: Registrasi Akun Baru (Self-Registration) -->
-              <div class="pt-4 flex items-center justify-between gap-4">
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2">
-                    <h4 class="text-sm font-bold text-gray-900 dark:text-white">Registrasi Mandiri (Self-Registration)</h4>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold
-                      {allowRegistration ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'}">
-                      {allowRegistration ? 'Diizinkan' : 'Dinonaktifkan'}
-                    </span>
-                  </div>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 max-w-xl">
-                    Mengizinkan staf baru mendaftarkan akun mereka secara mandiri dari portal login. Jika dinonaktifkan, akun baru hanya dapat dibuat oleh administrator.
-                  </p>
-                </div>
-
-                <!-- Toggle Switch -->
-                <button
-                  type="button"
-                  onclick={() => (allowRegistration = !allowRegistration)}
-                  aria-label="Izinkan registrasi mandiri akun baru"
-                  class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden
-                    {allowRegistration ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}"
-                  role="switch"
-                  aria-checked={allowRegistration}
-                >
-                  <span
-                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out
-                      {allowRegistration ? 'translate-x-5' : 'translate-x-0'}"
-                  ></span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Save Action Button -->
-            <div class="pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-              <button
-                type="button"
-                onclick={handleSaveSettings}
-                disabled={isSavingSettings}
-                class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {#if isSavingSettings}
-                  <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Menyimpan...</span>
-                {:else}
-                  <span>💾</span>
-                  <span>Simpan Pengaturan</span>
-                {/if}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminChannelsTab
+          channels={chatStore.channels}
+          isCreating={isCreatingChannel}
+          isSubmitting={isSubmittingChannel}
+          onToggleCreating={() => (isCreatingChannel = !isCreatingChannel)}
+          onCreateChannel={handleCreateChannel}
+          onDeleteChannel={handleDeleteChannel}
+        />
+      {:else if activeTab === 'settings'}
+        <AdminSettingsTab
+          {allowGuest}
+          {allowRegistration}
+          isSaving={isSavingSettings}
+          onToggleGuest={() => (allowGuest = !allowGuest)}
+          onToggleRegistration={() => (allowRegistration = !allowRegistration)}
+          onSave={handleSaveSettings}
+        />
       {/if}
     {/if}
   </main>

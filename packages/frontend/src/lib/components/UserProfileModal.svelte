@@ -77,8 +77,9 @@
       } else {
         passwordError = data.message || 'Gagal memperbarui password.';
       }
-    } catch (err: any) {
-      passwordError = err.message || 'Error koneksi server.';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error koneksi server.';
+      passwordError = msg;
     }
     isSavingPassword = false;
   }

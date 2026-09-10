@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { chatStore, formatWhatsAppTimestamp, type Channel, type User } from '../stores/chat.svelte';
+  import { chatStore, type Channel, type User } from '../stores/chat.svelte';
   import { uiStore } from '../stores/ui.svelte';
   import { goto } from '$app/navigation';
+  import ChannelListItem from './channel/ChannelListItem.svelte';
+  import NewChannelForm from './channel/NewChannelForm.svelte';
 
   let searchQuery = $state('');
   let isCreating = $state(false);
-  let newChannelName = $state('');
   let isSubmitting = $state(false);
   let activeTab = $state<'all' | 'channels' | 'direct'>('all');
 
@@ -16,7 +17,7 @@
   });
 
   // Filtered unified active conversations (Channels + DMs)
-  let activeConversations = $derived.by(() => {
+  let activeConversations = $derived.by((): Channel[] => {
     const q = searchQuery.trim().toLowerCase();
     return chatStore.channels.filter((c: Channel) => {
       if (activeTab === 'channels' && c.type === 'dm') return false;
@@ -36,35 +37,31 @@
   let directChatCount = $derived(chatStore.channels.filter(c => c.type === 'dm').length);
 
   // Staff users list (for starting new DMs)
-  let filteredStaffUsers = $derived(
-    chatStore.usersList.filter((u: User) =>
+  let filteredStaffUsers = $derived.by((): User[] => {
+    return chatStore.usersList.filter((u: User) =>
       u.id !== chatStore.authUser?.id &&
       u.username !== chatStore.currentUsername &&
       ((u.displayName || u.username || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
        (u.role || '').toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-  );
+    );
+  });
 
-  async function handleCreateChannel(e: Event) {
-    e.preventDefault();
-    if (!newChannelName.trim() || isSubmitting) return;
-
+  async function handleCreateChannel(name: string): Promise<void> {
     isSubmitting = true;
-    const created = await chatStore.createChannel(newChannelName.trim());
+    const created = await chatStore.createChannel(name);
     isSubmitting = false;
 
     if (created) {
-      newChannelName = '';
       isCreating = false;
       goto(`/chat/${created.id}`);
     }
   }
 
-  function handleStartDM(targetUser: User) {
+  function handleStartDM(targetUser: User): void {
     goto(`/chat/@${targetUser.username}`);
   }
 
-  function selectChannel(id: string) {
+  function selectChannel(id: string): void {
     goto(`/chat/${id}`);
   }
 </script>
@@ -178,15 +175,14 @@
   </div>
 
   <!-- WhatsApp Search Bar & Filter Chips -->
-  <div class="p-2 border-b border-[#d1d7db] dark:border-[#222d34] space-y-2 bg-white dark:bg-[#111b21]">
-    <!-- Search bar -->
-    <div class="relative">
+  <div class="px-3 pt-2.5 pb-2 bg-white dark:bg-[#111b21] space-y-2 shrink-0 border-b border-[#d1d7db]/40 dark:border-[#222d34]/60">
+    <!-- Search Capsule Input -->
+    <div class="relative flex items-center">
       <input
         type="text"
         bind:value={searchQuery}
-        placeholder="Cari atau mulai obrolan baru"
-        aria-label="Cari atau mulai obrolan baru"
-        class="w-full text-[13.5px] py-1.5 pl-9 pr-8 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] border-0 focus:ring-0 outline-none"
+        placeholder="Cari atau mulai chat baru..."
+        class="w-full pl-9 pr-8 py-1.5 text-[13px] bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] border-0 focus:ring-1 focus:ring-[#00a884] outline-none"
       />
       <svg class="w-4 h-4 text-[#667781] dark:text-[#8696a0] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -203,7 +199,7 @@
       {/if}
     </div>
 
-    <!-- WhatsApp Filter Chips (Horizontal scrollable pills) -->
+    <!-- Filter Chips -->
     <div class="flex gap-1.5 px-0.5 overflow-x-auto select-none no-scrollbar" role="tablist" aria-label="Filter obrolan">
       <button
         type="button"
@@ -245,41 +241,15 @@
 
     <!-- Inline Create Channel Form -->
     {#if isCreating}
-      <form onsubmit={handleCreateChannel} class="p-2.5 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg space-y-2 animate-fadeIn border border-[#008069]/30">
-        <label for="newChanInput" class="block text-xs font-semibold text-[#111b21] dark:text-[#e9edef]">Nama Channel Baru:</label>
-        <div class="flex items-center space-x-1">
-          <span class="text-[#667781] dark:text-[#8696a0] text-sm font-bold">#</span>
-          <input
-            id="newChanInput"
-            type="text"
-            bind:value={newChannelName}
-            placeholder="contoh: poli-anak"
-            class="w-full text-xs py-1.5 px-2 bg-white dark:bg-[#2a3942] rounded-md text-[#111b21] dark:text-[#e9edef] border-0 outline-none"
-            disabled={isSubmitting}
-            required
-          />
-        </div>
-        <div class="flex justify-end space-x-1.5 pt-1">
-          <button
-            type="button"
-            onclick={() => (isCreating = false)}
-            class="text-xs px-2.5 py-1 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-white rounded cursor-pointer"
-          >
-            Batal
-          </button>
-          <button
-            type="submit"
-            disabled={!newChannelName.trim() || isSubmitting}
-            class="text-xs px-3 py-1 bg-[#008069] hover:bg-[#007a60] text-white rounded-md font-bold disabled:opacity-50 transition cursor-pointer"
-          >
-            {isSubmitting ? 'Membuat...' : 'Buat Channel'}
-          </button>
-        </div>
-      </form>
+      <NewChannelForm
+        {isSubmitting}
+        onSubmit={handleCreateChannel}
+        onCancel={() => (isCreating = false)}
+      />
     {/if}
   </div>
 
-  <!-- WhatsApp Chat List Items -->
+  <!-- Chat List Items -->
   <div class="flex-1 overflow-y-auto divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60">
     {#if chatStore.isLoadingChannels}
       <div class="divide-y divide-[#d1d7db]/40 dark:divide-[#222d34]/60 animate-pulse" aria-busy="true" aria-label="Memuat daftar obrolan...">
@@ -294,91 +264,14 @@
         {/each}
       </div>
     {:else}
-      <!-- Unified flat list of active conversations (Channels + DMs) like WhatsApp -->
+      <!-- Unified flat list of active conversations -->
       {#each activeConversations as channel (channel.id)}
-        {@const isDM = channel.type === 'dm'}
-        {@const targetUser = isDM ? channel.targetUser : null}
-        {@const displayName = isDM ? (targetUser?.displayName || targetUser?.username || 'Staff RSUD') : channel.name}
-        {@const isOnline = isDM && targetUser?.username ? chatStore.isUserOnline(targetUser.username) : false}
-        {@const isTyping = chatStore.isTypingInChannel(channel.id) || chatStore.isTypingInChannel(channel.name) || Boolean(targetUser?.username && chatStore.isTypingInChannel(targetUser.username))}
         {@const isActive = chatStore.activeChannelId === channel.id || chatStore.activeChannelId === channel.name}
-
-        <button
-          onclick={() => selectChannel(channel.id)}
-          class="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors duration-100 group cursor-pointer
-            {isActive
-              ? 'bg-[#f0f2f5] dark:bg-[#2a3942]'
-              : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'}"
-        >
-          <!-- Avatar (Channel Hash or User Avatar with Realtime Online Dot) -->
-          <div class="relative w-12 h-12 rounded-full shrink-0 shadow-2xs">
-            {#if isDM}
-              {#if targetUser?.avatarUrl}
-                <img
-                  src={targetUser.avatarUrl}
-                  alt={displayName}
-                  width="48"
-                  height="48"
-                  loading="lazy"
-                  decoding="async"
-                  class="w-12 h-12 rounded-full object-cover border border-black/5 dark:border-white/5"
-                />
-              {:else}
-                <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-base">
-                  {displayName.slice(0, 2).toUpperCase()}
-                </div>
-              {/if}
-              <!-- Realtime Online Dot: ONLY IF USER IS GENUINELY ONLINE -->
-              {#if isOnline}
-                <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00a884] border-2 border-white dark:border-[#111b21]"></span>
-              {/if}
-            {:else}
-              <div class="w-12 h-12 rounded-full bg-[#008069] text-white flex items-center justify-center font-bold text-lg shrink-0">
-                #
-              </div>
-            {/if}
-          </div>
-
-          <!-- Content preview (WhatsApp Authentic Style) -->
-          <div class="flex-1 min-w-0 flex flex-col justify-center">
-            <div class="flex items-center justify-between">
-              <span class="text-[15.5px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
-                {displayName}
-              </span>
-              <span class="text-[11.5px] shrink-0 ml-2 {channel.unreadCount ? 'text-[#00a884] font-bold' : 'text-[#667781] dark:text-[#8696a0]'}">
-                {channel.lastMessage?.createdAt ? formatWhatsAppTimestamp(channel.lastMessage.createdAt) : ''}
-              </span>
-            </div>
-            <div class="flex items-center justify-between mt-0.5">
-              <div class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate pr-2">
-                {#if isTyping}
-                  <span class="text-[#008069] dark:text-[#00a884] font-medium italic animate-pulse">
-                    sedang mengetik...
-                  </span>
-                {:else if channel.lastMessage}
-                  {#if channel.lastMessage.attachments && channel.lastMessage.attachments.length > 0}
-                    <span class="inline-flex items-center gap-1 text-[#111b21] dark:text-[#e9edef]">
-                      <span>📷</span>
-                      <span>Foto</span>
-                    </span>
-                  {:else}
-                    {#if !isDM}
-                      <span class="font-medium text-[#111b21]/80 dark:text-[#e9edef]/80">~ {channel.lastMessage.senderName}:</span>
-                    {/if}
-                    <span>{channel.lastMessage.text}</span>
-                  {/if}
-                {:else}
-                  <span class="italic text-gray-400 dark:text-gray-500 text-[12px]">Belum ada pesan</span>
-                {/if}
-              </div>
-              {#if channel.unreadCount && channel.unreadCount > 0}
-                <span class="min-w-[18px] h-[18px] px-1 bg-[#00a884] text-white font-bold text-[10.5px] rounded-full flex items-center justify-center shrink-0">
-                  {channel.unreadCount}
-                </span>
-              {/if}
-            </div>
-          </div>
-        </button>
+        <ChannelListItem
+          {channel}
+          {isActive}
+          onSelect={selectChannel}
+        />
       {/each}
 
       <!-- If on "Pribadi / Staf" tab, display Staff Directory to start new conversation -->
@@ -391,6 +284,7 @@
         {#each filteredStaffUsers as user (user.id)}
           {@const isOnline = chatStore.isUserOnline(user.username)}
           <button
+            type="button"
             onclick={() => handleStartDM(user)}
             class="w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors duration-100 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] group cursor-pointer"
           >
@@ -419,62 +313,36 @@
             <!-- User details -->
             <div class="flex-1 min-w-0 flex flex-col justify-center">
               <div class="flex items-center justify-between">
-                <span class="text-[15.5px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
+                <span class="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
                   {user.displayName || user.username}
                 </span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-[#008069]/15 text-[#008069] dark:text-[#00a884] font-bold shrink-0 ml-2">
-                  {user.role.toUpperCase()}
+                <span class="text-[11px] text-[#008069] dark:text-[#00a884] font-medium uppercase tracking-wider">
+                  {user.role}
                 </span>
               </div>
-              <p class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5 flex items-center gap-1">
+              <div class="text-[13px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5 flex items-center gap-1.5">
                 {#if isOnline}
-                  <span class="text-[#008069] dark:text-[#00a884] font-medium">Online</span>
-                  <span>•</span>
+                  <span class="w-2 h-2 rounded-full bg-[#00a884] inline-block"></span>
+                  <span class="text-[#00a884] font-medium">Online</span>
+                {:else}
+                  <span>Offline</span>
                 {/if}
-                <span>Klik untuk kirim pesan</span>
-              </p>
+                <span>• Klik untuk kirim pesan</span>
+              </div>
             </div>
           </button>
         {/each}
       {/if}
 
-      <!-- Empty State if no active conversations and not on direct tab -->
-      {#if activeConversations.length === 0 && activeTab !== 'direct'}
-        <div class="p-8 text-center text-xs text-[#667781] dark:text-[#8696a0] space-y-2">
-          <p class="font-medium text-sm text-[#111b21] dark:text-[#e9edef]">Tidak ada obrolan yang cocok</p>
-          <p>Coba kata kunci pencarian lain atau pilih tab <strong>Pribadi / Staf</strong> untuk memulai obrolan baru.</p>
+      <!-- Empty Filter State -->
+      {#if activeConversations.length === 0 && (activeTab !== 'direct' || filteredStaffUsers.length === 0)}
+        <div class="p-8 text-center text-[#667781] dark:text-[#8696a0] text-sm">
+          <p class="font-medium text-base mb-1">Tidak ada percakapan</p>
+          <p class="text-xs">
+            {searchQuery ? 'Tidak ada hasil untuk "' + searchQuery + '"' : 'Mulai obrolan baru dengan staf atau buat channel.'}
+          </p>
         </div>
       {/if}
     {/if}
   </div>
-
-  <!-- WhatsApp Floating Action Button (FAB) on mobile -->
-  <div class="md:hidden absolute bottom-5 right-5 z-20">
-    <button
-      type="button"
-      onclick={() => (isCreating = !isCreating)}
-      class="w-14 h-14 bg-[#00a884] hover:bg-[#008069] active:scale-95 text-white rounded-2xl shadow-xl flex items-center justify-center transition-all cursor-pointer"
-      title="Buat Channel Baru"
-      aria-label="Buat Channel Baru"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Bottom Quick Auth Footer if not logged in -->
-  {#if !chatStore.authUser}
-    <div class="p-3 bg-[#f0f2f5] dark:bg-[#202c33] border-t border-[#d1d7db] dark:border-[#222d34]">
-      <button
-        onclick={() => uiStore.openAuthModal()}
-        class="w-full py-2 px-3 bg-[#008069] hover:bg-[#007a60] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-        </svg>
-        <span>Masuk Akun Staf RSUD</span>
-      </button>
-    </div>
-  {/if}
 </aside>

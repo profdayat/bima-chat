@@ -5,6 +5,7 @@
  * Messages are cached per-channel and synced incrementally via delta updates.
  */
 import { browser } from '$app/environment';
+import type { ChatMessage } from '$lib/types';
 
 const DB_NAME = 'bima_chat_db';
 const DB_VERSION = 1;
@@ -15,7 +16,6 @@ let dbInstance: IDBDatabase | null = null;
 
 function openDB(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
-  if (!browser) return Promise.reject(new Error('IndexedDB not available on server'));
 
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -23,21 +23,22 @@ function openDB(): Promise<IDBDatabase> {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
-      // Messages store: keyed by message id, indexed by channelId + timestamp
+      // Messages store: keyed by message id
       if (!db.objectStoreNames.contains(MESSAGES_STORE)) {
-        const msgStore = db.createObjectStore(MESSAGES_STORE, { keyPath: 'id' });
-        msgStore.createIndex('channelId', 'channelId', { unique: false });
-        msgStore.createIndex('channelId_timestamp', ['channelId', 'timestamp'], { unique: false });
+        const store = db.createObjectStore(MESSAGES_STORE, { keyPath: 'id' });
+        store.createIndex('channelId', 'channelId', { unique: false });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+        store.createIndex('channel_time', ['channelId', 'timestamp'], { unique: false });
       }
 
-      // Meta store: per-channel metadata (last sync timestamp, etc.)
+      // Meta store: tracks last sync timestamp per channel
       if (!db.objectStoreNames.contains(META_STORE)) {
         db.createObjectStore(META_STORE, { keyPath: 'key' });
       }
     };
 
-    request.onsuccess = (event) => {
-      dbInstance = (event.target as IDBOpenDBRequest).result;
+    request.onsuccess = () => {
+      dbInstance = request.result;
       resolve(dbInstance);
     };
 
@@ -51,7 +52,7 @@ function openDB(): Promise<IDBDatabase> {
 /**
  * Save messages to IndexedDB (upsert - insert or update)
  */
-export async function saveMessagesToLocal(messages: any[]): Promise<void> {
+export async function saveMessagesToLocal(messages: ChatMessage[]): Promise<void> {
   if (!browser || messages.length === 0) return;
   try {
     const db = await openDB();
@@ -74,7 +75,7 @@ export async function saveMessagesToLocal(messages: any[]): Promise<void> {
 /**
  * Load cached messages for a channel from IndexedDB (sorted by timestamp asc)
  */
-export async function loadMessagesFromLocal(channelId: string, limit: number = 30): Promise<any[]> {
+export async function loadMessagesFromLocal(channelId: string, limit: number = 30): Promise<ChatMessage[]> {
   if (!browser) return [];
   try {
     const db = await openDB();
@@ -84,7 +85,7 @@ export async function loadMessagesFromLocal(channelId: string, limit: number = 3
     const range = IDBKeyRange.only(channelId);
 
     return new Promise((resolve, reject) => {
-      const results: any[] = [];
+      const results: ChatMessage[] = [];
       const request = index.openCursor(range, 'prev'); // newest first
 
       request.onsuccess = (event) => {

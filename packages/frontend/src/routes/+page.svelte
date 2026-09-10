@@ -3,6 +3,9 @@
   import { goto } from '$app/navigation';
   import { chatStore } from '$lib/stores/chat.svelte';
   import { uiStore } from '$lib/stores/ui.svelte';
+  import './landing.css';
+
+  type LandingView = 'login' | 'register' | 'guest';
 
   // Local form state
   let username = $state('');
@@ -10,7 +13,7 @@
   let guestName = $state('');
   let errorMessage = $state('');
   let isSubmitting = $state(false);
-  let view = $state<'login' | 'register' | 'guest'>('login');
+  let view = $state<LandingView>('login');
   let regUsername = $state('');
   let regPassword = $state('');
   let regError = $state('');
@@ -24,7 +27,7 @@
     }
   });
 
-  async function handleLogin(e: Event) {
+  async function handleLogin(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     if (!username.trim() || !password.trim() || isSubmitting) return;
     isSubmitting = true;
@@ -38,7 +41,7 @@
     }
   }
 
-  async function handleRegister(e: Event) {
+  async function handleRegister(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     if (!regUsername.trim() || !regPassword.trim() || isRegistering) return;
     isRegistering = true;
@@ -52,7 +55,7 @@
     }
   }
 
-  function handleGuestAccess(e: Event) {
+  function handleGuestAccess(e: SubmitEvent): void {
     e.preventDefault();
     const name = guestName.trim() || 'Tamu-' + Math.floor(1000 + Math.random() * 9000);
     chatStore.setGuestNickname(name);
@@ -160,15 +163,13 @@
           </button>
         </form>
 
-        <!-- Divider -->
-        <div class="landing-divider">
-          <div class="landing-divider-line"></div>
-          <span class="landing-divider-text">atau</span>
-          <div class="landing-divider-line"></div>
-        </div>
-
-        <!-- Guest Button -->
         {#if chatStore.systemSettings.allowGuest}
+          <div class="landing-divider">
+            <div class="landing-divider-line"></div>
+            <span class="landing-divider-text">atau</span>
+            <div class="landing-divider-line"></div>
+          </div>
+
           <button
             type="button"
             onclick={() => (view = 'guest')}
@@ -179,17 +180,12 @@
           </button>
         {/if}
 
-        <!-- Register Link -->
         {#if chatStore.systemSettings.allowRegistration}
           <p class="landing-footer-text">
             Belum punya akun?
-            <button type="button" onclick={() => (view = 'register')} class="landing-link">
-              Daftar sekarang
+            <button type="button" onclick={() => { view = 'register'; errorMessage = ''; }} class="landing-link">
+              Daftar di sini
             </button>
-          </p>
-        {:else}
-          <p class="landing-footer-text" style="color: var(--clr-on-surface-variant);">
-            Pendaftaran mandiri dinonaktifkan. Hubungi admin untuk akun baru.
           </p>
         {/if}
 
@@ -305,423 +301,3 @@
     </div>
   </footer>
 </div>
-
-<style>
-  /* ─── Font faces — WhatsApp Web System Font Stack ─── */
-  :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  }
-
-  /* ─── CSS custom properties — WhatsApp 2025 Palette ─── */
-  .landing-page {
-    /* Light mode */
-    --clr-primary:             #008069;
-    --clr-primary-active:      #00a884;
-    --clr-primary-container:   #e8faf6;
-    --clr-on-primary:          #ffffff;
-    --clr-background:          #efeae2;
-    --clr-surface:             #ffffff;
-    --clr-surface-container:   #f0f2f5;
-    --clr-surface-lowest:      #ffffff;
-    --clr-on-surface:          #111b21;
-    --clr-on-surface-variant:  #667781;
-    --clr-outline:             #8696a0;
-    --clr-outline-variant:     #e9edef;
-    --clr-error:               #ea0038;
-    --clr-error-container:     #fee2e2;
-    --clr-secondary:           #667781;
-
-    min-height: 100svh;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--clr-background);
-    color: var(--clr-on-surface);
-  }
-
-  /* Dark mode overrides — WhatsApp-style dark slate */
-  :global(html.dark) .landing-page {
-    --clr-primary:             #00a884;
-    --clr-primary-active:      #008069;
-    --clr-primary-container:   #1f2c34;
-    --clr-on-primary:          #ffffff;
-    --clr-background:          #0b141a;
-    --clr-surface:             #111b21;
-    --clr-surface-container:   #202c33;
-    --clr-surface-lowest:      #111b21;
-    --clr-on-surface:          #e9edef;
-    --clr-on-surface-variant:  #8696a0;
-    --clr-outline:             #374248;
-    --clr-outline-variant:     #222d34;
-    --clr-error:               #f15c6d;
-    --clr-error-container:     #450a0a;
-    --clr-secondary:           #8696a0;
-  }
-
-  /* ─── Header ─── */
-  .landing-header {
-    background-color: var(--clr-background);
-    position: sticky;
-    top: 0;
-    z-index: 40;
-  }
-  .landing-header-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    width: 100%;
-  }
-  .landing-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .landing-brand-icon {
-    color: var(--clr-primary);
-    font-size: 1.5rem;
-  }
-  .landing-brand-name {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--clr-primary);
-  }
-  .landing-theme-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--clr-on-surface-variant);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .landing-theme-btn:hover {
-    background: color-mix(in srgb, var(--clr-primary) 12%, transparent);
-  }
-
-  /* ─── Main ─── */
-  .landing-main {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* ─── Card ─── */
-  .landing-card {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    max-width: 26rem;
-    background-color: var(--clr-surface-lowest);
-    border-radius: 0.75rem;
-    padding: 2rem 2rem 2.25rem;
-    box-shadow: 0 4px 24px rgba(46, 50, 48, 0.08);
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  /* ─── Logo ─── */
-  .landing-logo-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 1.75rem;
-  }
-  .landing-logo-circle {
-    width: 4rem;
-    height: 4rem;
-    background-color: var(--clr-primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--clr-primary) 35%, transparent);
-  }
-  .landing-logo-icon {
-    color: var(--clr-on-primary);
-    font-size: 1.875rem;
-  }
-  .landing-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--clr-on-surface);
-    margin: 0 0 0.375rem;
-    text-align: center;
-  }
-  .landing-subtitle {
-    font-size: 0.875rem;
-    color: var(--clr-on-surface-variant);
-    text-align: center;
-    line-height: 1.55;
-    margin: 0;
-  }
-
-  /* ─── Form ─── */
-  .landing-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    width: 100%;
-  }
-  .landing-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .landing-field-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--clr-on-surface-variant);
-  }
-  .landing-field-hint {
-    font-size: 0.7rem;
-    color: var(--clr-outline);
-    margin: 0;
-  }
-  .landing-input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-  .landing-input-icon {
-    position: absolute;
-    left: 0.75rem;
-    color: var(--clr-outline);
-    font-size: 1.25rem;
-    pointer-events: none;
-  }
-  .landing-input {
-    display: block;
-    width: 100%;
-    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-    background-color: var(--clr-surface);
-    border: 1px solid color-mix(in srgb, var(--clr-outline-variant) 70%, transparent);
-    border-radius: 0.5rem;
-    font-family: 'Nunito Sans', sans-serif;
-    font-size: 0.9375rem;
-    color: var(--clr-on-surface);
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .landing-input::placeholder {
-    color: color-mix(in srgb, var(--clr-on-surface-variant) 55%, transparent);
-  }
-  .landing-input:focus {
-    border-color: var(--clr-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-primary) 18%, transparent);
-  }
-
-  /* ─── Buttons ─── */
-  .landing-btn-primary {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background-color: var(--clr-primary);
-    color: var(--clr-on-primary);
-    border: none;
-    border-radius: 0.75rem;
-    font-family: 'Nunito Sans', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--clr-primary) 30%, transparent);
-  }
-  .landing-btn-primary:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--clr-primary) 87%, black);
-  }
-  .landing-btn-primary:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .landing-btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .landing-btn-outline {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background-color: var(--clr-surface-lowest);
-    color: var(--clr-on-surface);
-    border: 1px solid var(--clr-outline-variant);
-    border-radius: 0.75rem;
-    font-family: 'Nunito Sans', sans-serif;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-    margin-top: 0.25rem;
-  }
-  .landing-btn-outline:hover {
-    background-color: var(--clr-surface-container);
-  }
-
-  .landing-btn-ghost {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.625rem 1rem;
-    background: transparent;
-    color: var(--clr-on-surface-variant);
-    border: none;
-    border-radius: 0.75rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .landing-btn-ghost:hover {
-    background: color-mix(in srgb, var(--clr-on-surface) 6%, transparent);
-  }
-
-  .landing-btn-icon {
-    font-size: 1.125rem;
-  }
-
-  /* ─── Divider ─── */
-  .landing-divider {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 1.25rem 0 0.5rem;
-  }
-  .landing-divider-line {
-    flex: 1;
-    height: 1px;
-    background-color: color-mix(in srgb, var(--clr-outline-variant) 40%, transparent);
-  }
-  .landing-divider-text {
-    font-size: 0.8125rem;
-    color: var(--clr-on-surface-variant);
-    white-space: nowrap;
-  }
-
-  /* ─── Error ─── */
-  .landing-error {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 0.875rem;
-    background-color: var(--clr-error-container);
-    color: var(--clr-error);
-    border-radius: 0.5rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-  }
-  .landing-error .material-symbols-outlined {
-    font-size: 1.1rem;
-  }
-
-  /* ─── Footer text inside card ─── */
-  .landing-footer-text {
-    text-align: center;
-    font-size: 0.875rem;
-    color: var(--clr-on-surface-variant);
-    margin-top: 1.5rem;
-  }
-  .landing-link {
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: 700;
-    color: var(--clr-primary);
-    cursor: pointer;
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .landing-link:hover {
-    text-decoration: underline;
-  }
-
-  /* ─── Spinner ─── */
-  .landing-spinner {
-    display: inline-block;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ─── Page Footer ─── */
-  .landing-footer {
-    background-color: var(--clr-surface-lowest);
-    border-top: 1px solid color-mix(in srgb, var(--clr-outline-variant) 35%, transparent);
-    margin-top: auto;
-  }
-  .landing-footer-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1.25rem 2rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    width: 100%;
-  }
-  @media (min-width: 640px) {
-    .landing-footer-inner {
-      flex-direction: row;
-      justify-content: space-between;
-    }
-  }
-  .landing-footer-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .landing-footer-brand-name {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--clr-primary);
-  }
-  .landing-footer-copy {
-    font-size: 0.8125rem;
-    color: var(--clr-secondary);
-  }
-  .landing-footer-nav {
-    display: flex;
-    gap: 1rem;
-  }
-  .landing-footer-link {
-    font-size: 0.8125rem;
-    color: var(--clr-on-surface-variant);
-    text-decoration: underline;
-    transition: color 0.15s;
-  }
-  .landing-footer-link:hover {
-    color: var(--clr-primary);
-  }
-
-  /* ─── Responsive ─── */
-  @media (min-width: 640px) {
-    .landing-card {
-      padding: 2.5rem 2.5rem 2.75rem;
-    }
-  }
-</style>
