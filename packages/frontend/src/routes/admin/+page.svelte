@@ -680,6 +680,7 @@
                 <button
                   type="button"
                   onclick={() => (allowGuest = !allowGuest)}
+                  aria-label="Izinkan akses tamu tanpa login"
                   class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden
                     {allowGuest ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}"
                   role="switch"
@@ -711,6 +712,7 @@
                 <button
                   type="button"
                   onclick={() => (allowRegistration = !allowRegistration)}
+                  aria-label="Izinkan registrasi mandiri akun baru"
                   class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden
                     {allowRegistration ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}"
                   role="switch"

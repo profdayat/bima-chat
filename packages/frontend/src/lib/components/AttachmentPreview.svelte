@@ -1,5 +1,13 @@
 <script lang="ts">
-  let { attachments = [] }: { attachments: { url: string; name: string; type: string; size: number }[] } = $props();
+  import type { Snippet } from 'svelte';
+
+  let {
+    attachments = [],
+    overlay
+  }: {
+    attachments: { url: string; name: string; type: string; size: number }[];
+    overlay?: Snippet;
+  } = $props();
 
   let lightboxUrl = $state<string | null>(null);
   let lightboxName = $state('');
@@ -43,11 +51,11 @@
 
 {#if attachments && attachments.length > 0}
   <div class="mt-0.5 space-y-1.5">
-    {#each attachments as file}
+    {#each attachments as file, index}
       {@const fileUrl = resolveUrl(file.url)}
       {#if isImage(file.type)}
-        <!-- WhatsApp Photo Card: Rounded image with overlay timestamp -->
-        <div class="relative group/img cursor-pointer max-w-[280px] md:max-w-[320px]">
+        <!-- WhatsApp Photo Card: Rounded image with natural proportions -->
+        <div class="relative group/img cursor-pointer max-w-[280px] sm:max-w-[320px]">
           <button
             type="button"
             onclick={() => openLightbox(file.url, file.name)}
@@ -61,15 +69,14 @@
               decoding="async"
               width="320"
               height="240"
-              class="max-h-[380px] w-full object-cover rounded-lg transition-opacity group-hover/img:opacity-90"
-              style="aspect-ratio: 4/3;"
+              class="max-h-[360px] w-full object-cover rounded-lg transition-opacity group-hover/img:opacity-95"
             />
           </button>
           <!-- Floating download button on hover (WhatsApp style) -->
           <a
             href={fileUrl}
             download={file.name}
-            class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/60"
+            class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/60 z-10"
             title="Download"
             aria-label="Download foto {file.name}"
             rel="noopener noreferrer"
@@ -78,6 +85,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
           </a>
+
+          {#if overlay && index === attachments.length - 1}
+            {@render overlay()}
+          {/if}
         </div>
       {:else}
         <!-- File card (WhatsApp document style) -->

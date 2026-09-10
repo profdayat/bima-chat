@@ -71,6 +71,10 @@
   let isUploadingFile = $state(false);
   let uploadedFiles = $state<{ url: string; name: string; type: string; size: number }[]>([]);
 
+  // In-chat search state
+  let isSearchOpen = $state(false);
+  let inChatSearchQuery = $state('');
+
   // Emoji Picker State & Categories
   let showEmojiPicker = $state(false);
   let selectedEmojiCategory = $state<'frequent' | 'faces' | 'medical' | 'gestures'>('frequent');
@@ -326,10 +330,10 @@
       yesterday.setDate(today.getDate() - 1);
 
       if (date.toDateString() === today.toDateString()) {
-        return 'HARI INI';
+        return 'Hari ini';
       }
       if (date.toDateString() === yesterday.toDateString()) {
-        return 'KEMARIN';
+        return 'Kemarin';
       }
 
       return date.toLocaleDateString('id-ID', {
@@ -345,7 +349,13 @@
 
   // Group messages chronologically by date for floating date headers
   let messageGroupsByDate = $derived.by(() => {
-    const sorted = [...chatStore.messages].sort((a, b) => {
+    let sourceMessages = chatStore.messages;
+    if (inChatSearchQuery.trim()) {
+      const q = inChatSearchQuery.trim().toLowerCase();
+      sourceMessages = sourceMessages.filter(m => (m.text || '').toLowerCase().includes(q) || (m.sender?.username || '').toLowerCase().includes(q));
+    }
+
+    const sorted = [...sourceMessages].sort((a, b) => {
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
       const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
       return timeA - timeB;
@@ -483,16 +493,17 @@
   <!-- WhatsApp Web Style Top Header (Fixed Height to prevent CLS) -->
   <header class="px-4 h-[60px] min-h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#d1d7db] dark:border-[#222d34] flex items-center justify-between z-20 select-none shadow-2xs shrink-0 sticky top-0">
     <div class="flex items-center space-x-3 min-w-0">
-      <!-- Mobile Hamburger Button -->
-      <button
-        onclick={() => uiStore.toggleSidebar()}
-        class="md:hidden p-1 text-[#54656f] dark:text-[#aebac1] hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition"
-        aria-label="Open sidebar"
+      <!-- Mobile Back Arrow Button: Returns to /chat full-screen list -->
+      <a
+        href="/chat"
+        class="md:hidden p-1.5 -ml-1 text-[#54656f] dark:text-[#aebac1] hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition flex items-center justify-center shrink-0 mr-1 cursor-pointer"
+        title="Kembali ke daftar obrolan"
+        aria-label="Kembali ke daftar obrolan"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>
         </svg>
-      </button>
+      </a>
 
       <!-- Avatar or Channel Icon -->
       {#if isDirectMessage}
@@ -536,23 +547,70 @@
       </div>
     </div>
 
-    <!-- Live SSE Status Indicator -->
-    <div class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ml-2 border transition-colors
-      {chatStore.isConnected 
-        ? 'bg-emerald-500/10 text-[#008069] dark:text-[#00a884] border-[#008069]/30' 
-        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
-    >
-      <span class="relative flex h-2 w-2">
-        {#if chatStore.isConnected}
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069] dark:bg-[#00a884]"></span>
-        {:else}
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-        {/if}
-      </span>
-      <span class="text-[11px] leading-none">{chatStore.isConnected ? 'Terhubung' : 'Menghubungkan...'}</span>
+    <!-- Header Actions (Search & SSE Status) -->
+    <div class="flex items-center gap-1.5 shrink-0 ml-2">
+      <!-- Search inside chat button -->
+      <button
+        type="button"
+        onclick={() => { isSearchOpen = !isSearchOpen; if (!isSearchOpen) inChatSearchQuery = ''; }}
+        class="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition text-[#54656f] dark:text-[#aebac1] cursor-pointer"
+        title="Cari pesan dalam obrolan"
+        aria-label="Cari pesan dalam obrolan"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </button>
+
+      <!-- Live SSE Status Indicator -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors
+        {chatStore.isConnected 
+          ? 'bg-emerald-500/10 text-[#008069] dark:text-[#00a884] border-[#008069]/30' 
+          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'}"
+      >
+        <span class="relative flex h-2 w-2">
+          {#if chatStore.isConnected}
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#008069] dark:bg-[#00a884]"></span>
+          {:else}
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+          {/if}
+        </span>
+        <span class="text-[11px] leading-none hidden sm:inline">{chatStore.isConnected ? 'Terhubung' : 'Menghubungkan...'}</span>
+      </div>
     </div>
   </header>
+
+  <!-- In-Chat Search Bar Drawer -->
+  {#if isSearchOpen}
+    <div class="px-4 py-2 bg-[#f0f2f5] dark:bg-[#1f2c34] border-b border-[#d1d7db] dark:border-[#222d34] flex items-center gap-2 animate-fadeIn z-20 select-none">
+      <svg class="w-4 h-4 text-[#667781] dark:text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+      </svg>
+      <input
+        type="text"
+        bind:value={inChatSearchQuery}
+        placeholder="Cari pesan di obrolan ini..."
+        class="flex-1 bg-transparent text-[13px] text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] border-0 outline-none"
+      />
+      {#if inChatSearchQuery}
+        <button
+          type="button"
+          onclick={() => (inChatSearchQuery = '')}
+          class="text-xs text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-white px-1"
+        >
+          ✕
+        </button>
+      {/if}
+      <button
+        type="button"
+        onclick={() => { isSearchOpen = false; inChatSearchQuery = ''; }}
+        class="text-xs font-semibold text-[#008069] dark:text-[#00a884] ml-1 cursor-pointer"
+      >
+        Tutup
+      </button>
+    </div>
+  {/if}
 
   <!-- Pinned Message Interactive Docked Banner under Header (Absolute overlay for 0 CLS) -->
   {#if pinnedMessages.length > 0}
@@ -631,12 +689,12 @@
           </div>
         </div>
       {:else}
-        <!-- WhatsApp Floating Scroll Date Pill (8px below header, appears on scroll, auto-hides after 1.5s) -->
+        <!-- WhatsApp Floating Scroll Date Pill -->
         <div
           class="sticky top-2 inset-x-0 z-30 flex justify-center pointer-events-none transition-all duration-300
             {isScrolling ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}"
         >
-          <span class="px-3 py-1 bg-white/95 dark:bg-[#182229]/95 backdrop-blur-md text-[11.5px] font-semibold text-[#4b5563] dark:text-[#9ca3af] rounded-lg shadow-md border border-black/5 dark:border-white/10 uppercase tracking-wide pointer-events-auto select-none">
+          <span class="px-3.5 py-1 bg-white/95 dark:bg-[#182229]/95 backdrop-blur-md text-[12px] font-semibold text-[#667781] dark:text-[#8696a0] rounded-lg shadow-md border border-black/5 dark:border-white/10 pointer-events-auto select-none">
             {activeFloatingDate || (messageGroupsByDate[messageGroupsByDate.length - 1]?.dateLabel || '')}
           </span>
         </div>
@@ -644,8 +702,8 @@
         {#each messageGroupsByDate as group (group.key)}
           <div data-date-group={group.dateLabel} class="relative w-full mb-3">
             <!-- In-stream Day Separator (Clean WhatsApp style) -->
-            <div class="flex justify-center py-1.5 select-none">
-              <span class="px-3 py-0.5 bg-white/85 dark:bg-[#182229]/85 backdrop-blur-xs text-[11px] font-medium text-[#4b5563] dark:text-[#9ca3af] rounded-md shadow-2xs border border-black/5 dark:border-white/5 uppercase tracking-wide">
+            <div class="flex justify-center my-3.5 select-none">
+              <span class="px-3.5 py-1 bg-white/90 dark:bg-[#182229]/95 text-[12px] font-medium text-[#667781] dark:text-[#8696a0] rounded-lg shadow-2xs border border-black/5 dark:border-white/5">
                 {group.dateLabel}
               </span>
             </div>
@@ -689,7 +747,7 @@
   {/if}
 
   <!-- Floating WhatsApp Input Bar (Authentic WhatsApp Mobile & Web Floating Pill) -->
-  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe bg-transparent">
+  <footer class="p-2 md:p-3 relative z-20 shrink-0 pb-safe pb-2 bg-transparent">
     <!-- Reply Quote Preview Floating Box -->
     {#if chatStore.replyingToMessage}
       <div class="max-w-4xl mx-auto mb-2 px-4 py-2 bg-white/95 dark:bg-[#202c33]/95 backdrop-blur-md rounded-2xl shadow-md border-l-4 border-[#008069] flex items-center justify-between text-xs animate-fadeIn border border-black/5 dark:border-white/5">

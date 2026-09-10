@@ -8,6 +8,44 @@ export interface Channel {
   description?: string;
   targetUser?: User;
   createdAt: string;
+  lastMessage?: {
+    text: string;
+    senderName?: string;
+    attachments?: any[] | null;
+    createdAt?: string;
+  } | null;
+  unreadCount?: number;
+}
+
+export function formatWhatsAppTimestamp(dateStr: string | undefined): string {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    
+    // Check if today: "14.46"
+    if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    // Check if yesterday: "Kemarin"
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return 'Kemarin';
+    }
+
+    // Check if within last 6 days: "Senin", "Selasa", etc.
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 7 && diffDays > 0) {
+      return date.toLocaleDateString('id-ID', { weekday: 'long' });
+    }
+
+    // Else: "07/09/26"
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
 export interface User {
@@ -601,6 +639,22 @@ export function createChatStore() {
     messages[storeKey] = [...existingList, optimisticMsg];
     if (channelId !== storeKey) messages[channelId] = messages[storeKey];
 
+    // Optimistically update channel's last message and float to top
+    const targetCh = channels.find(c => c.id === storeKey || c.name === storeKey || c.id === channelId || c.name === channelId);
+    if (targetCh) {
+      targetCh.lastMessage = {
+        text: optimisticMsg.text,
+        senderName: 'Anda',
+        attachments: optimisticMsg.attachments,
+        createdAt: optimisticMsg.timestamp
+      };
+      channels = [...channels].sort((a, b) => {
+        const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+        const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+    }
+
     try {
       const base = getApiBase();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -826,6 +880,22 @@ export function createChatStore() {
           // Persist to IndexedDB for local-first caching
           if (browser) {
             saveMessagesToLocal([newMsg]);
+          }
+
+          // Update channel's lastMessage and re-sort channels
+          const chMatch = channels.find(c => c.id === data.channelId || c.name === data.channelId || resolvedKeys.has(c.id) || resolvedKeys.has(c.name));
+          if (chMatch) {
+            chMatch.lastMessage = {
+              text: newMsg.text,
+              senderName: (newMsg.sender?.username || newMsg.sender) === currentUsername ? 'Anda' : (newMsg.sender?.displayName || newMsg.sender?.username || 'Staff RSUD'),
+              attachments: newMsg.attachments,
+              createdAt: newMsg.timestamp
+            };
+            channels = [...channels].sort((a, b) => {
+              const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+              const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+              return timeB - timeA;
+            });
           }
 
           if (data.sender?.username !== currentUsername) {

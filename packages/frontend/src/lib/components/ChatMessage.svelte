@@ -42,6 +42,12 @@
   let isWebhook = $derived(message.type === 'webhook_inbound');
   let msgStatus: MessageStatus = $derived(message.status || 'sent');
 
+  let hasAttachments = $derived(Boolean(message.attachments && message.attachments.length > 0));
+  let hasImage = $derived(Boolean(message.attachments?.some(a => a.type.startsWith('image/'))));
+  let hasText = $derived(Boolean(message.text && message.text.trim().length > 0));
+  let isMediaOnly = $derived(hasAttachments && !hasText);
+  let isImageOnly = $derived(isMediaOnly && hasImage);
+
   // Find the message that this is replying to
   let repliedMessage = $derived(
     message.replyToId ? chatStore.messages.find(m => m.id === message.replyToId) : null
@@ -101,8 +107,47 @@
   }
 }} />
 
-<div id="msg-{message.id}" class="flex w-full mb-2 {isSelf ? 'justify-end' : 'justify-start'} group transition-all duration-300 rounded-lg relative">
-  <div class="flex items-start gap-2 max-w-[90%] md:max-w-[75%] {isSelf ? 'flex-row-reverse' : 'flex-row'}">
+{#snippet statusIcon(white = false)}
+  {#if isSelf}
+    {#if msgStatus === 'pending'}
+      <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Mengirim...">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+    {:else if msgStatus === 'sent'}
+      <svg class="w-3.5 h-3.5 {white ? 'text-white/80' : 'opacity-70'} inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Terkirim">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+    {:else if msgStatus === 'delivered'}
+      <div class="inline-flex -space-x-2 {white ? 'text-white/80' : 'opacity-70'}" role="img" aria-label="Tersampaikan">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+    {:else if msgStatus === 'read'}
+      <div class="inline-flex -space-x-2 {white ? 'text-[#53bdeb]' : 'text-[#00a884]'}" role="img" aria-label="Dibaca">
+        <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet mediaOverlay()}
+  <div class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/55 backdrop-blur-xs text-white flex items-center gap-1 text-[11px] select-none pointer-events-none shadow-sm z-10">
+    <span>{formatTime(message.timestamp)}</span>
+    {@render statusIcon(true)}
+  </div>
+{/snippet}
+
+<div id="msg-{message.id}" class="flex w-full mb-1.5 md:mb-2 {isSelf ? 'justify-end' : 'justify-start'} group transition-all duration-300 rounded-lg relative">
+  <div class="flex items-start gap-2 max-w-[88%] md:max-w-[70%] {isSelf ? 'flex-row-reverse' : 'flex-row'}">
     <!-- Top-Aligned Profile Avatar Photo (WhatsApp Style) -->
     {#if !isSelf}
       <div
@@ -128,7 +173,8 @@
     <div class="flex flex-col gap-0.5 min-w-0 {isSelf ? 'items-end' : 'items-start'} relative group/bubble">
       <!-- WhatsApp Web Message Bubble with Pointy Tail to Avatar -->
       <div
-        class="relative px-3.5 py-1.5 rounded-lg shadow-xs text-sm max-w-full break-words transition-colors
+        class="relative rounded-lg shadow-xs text-sm max-w-full break-words transition-colors
+          {isImageOnly ? 'p-1' : isMediaOnly ? 'p-2' : 'px-3.5 py-1.5'}
           {isSelf
             ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef] rounded-tr-none'
             : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef] rounded-tl-none'}"
@@ -152,7 +198,7 @@
 
         <!-- WhatsApp Header in Group: Sender Name and Info -->
         {#if !isSelf}
-          <div class="flex items-center justify-between gap-3 text-xs font-bold {getSenderColor(senderName)} mb-0.5 select-none pr-5">
+          <div class="flex items-center justify-between gap-3 text-xs font-bold {getSenderColor(senderName)} mb-0.5 select-none pr-5 {isImageOnly ? 'px-1.5 pt-0.5' : ''}">
             <span class="truncate">~ {senderName}</span>
             <span class="text-[10px] text-[#4b5563] dark:text-[#9ca3af] font-normal shrink-0">
               {isWebhook ? 'WEBHOOK' : 'RSUD'}
@@ -161,7 +207,7 @@
         {/if}
 
         {#if message.isPinned}
-          <div class="text-[10px] text-amber-500 font-bold mb-0.5 select-none flex items-center gap-0.5">
+          <div class="text-[10px] text-amber-500 font-bold mb-0.5 select-none flex items-center gap-0.5 {isImageOnly ? 'px-1.5' : ''}">
             📌 Pinned
           </div>
         {/if}
@@ -180,13 +226,16 @@
 
         <!-- Attachments preview (WhatsApp: Image above text/caption) -->
         {#if message.attachments}
-          <div class="-mx-2 -mt-0.5 mb-1">
-            <AttachmentPreview attachments={message.attachments} />
+          <div class={isImageOnly ? '' : isMediaOnly ? '' : '-mx-2 -mt-0.5 mb-1'}>
+            <AttachmentPreview
+              attachments={message.attachments}
+              overlay={isImageOnly ? mediaOverlay : undefined}
+            />
           </div>
         {/if}
 
         <!-- Content text + Inline Floating Timestamp (WhatsApp Web Style) -->
-        {#if message.text && message.text.trim().length > 0}
+        {#if hasText}
           <div class="text-[14px] leading-relaxed select-text overflow-hidden pr-2">
             <span>{message.text}</span>
 
@@ -195,72 +244,14 @@
               class="inline-flex items-center gap-1 float-right translate-y-1.5 ml-2.5 text-[11px] select-none text-[#667781] dark:text-[#8696a0]"
             >
               <span>{formatTime(message.timestamp)}</span>
-
-              {#if isSelf}
-                {#if msgStatus === 'pending'}
-                  <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Mengirim...">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                {:else if msgStatus === 'sent'}
-                  <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Terkirim">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                {:else if msgStatus === 'delivered'}
-                  <div class="inline-flex -space-x-2 opacity-70" role="img" aria-label="Tersampaikan">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-                {:else if msgStatus === 'read'}
-                  <div class="inline-flex -space-x-2 text-[#00a884]" role="img" aria-label="Dibaca">
-                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-                {/if}
-              {/if}
+              {@render statusIcon(false)}
             </span>
           </div>
-        {:else}
-          <!-- Timestamp & Status Checkmarks for media-only messages without caption -->
-          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#667781] dark:text-[#8696a0] -mt-0.5 pt-0.5">
+        {:else if !isImageOnly}
+          <!-- Timestamp & Status Checkmarks for non-image media-only messages (e.g. docs) without caption -->
+          <div class="flex items-center justify-end gap-1 text-[11px] select-none text-[#667781] dark:text-[#8696a0] mt-0.5 pt-0.5">
             <span>{formatTime(message.timestamp)}</span>
-
-            {#if isSelf}
-              {#if msgStatus === 'pending'}
-                <svg class="w-3.5 h-3.5 animate-spin inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Mengirim...">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              {:else if msgStatus === 'sent'}
-                <svg class="w-3.5 h-3.5 opacity-70 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-label="Terkirim">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              {:else if msgStatus === 'delivered'}
-                <div class="inline-flex -space-x-2 opacity-70" role="img" aria-label="Tersampaikan">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </div>
-              {:else if msgStatus === 'read'}
-                <div class="inline-flex -space-x-2 text-[#00a884]" role="img" aria-label="Dibaca">
-                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </div>
-              {/if}
-            {/if}
+            {@render statusIcon(false)}
           </div>
         {/if}
 
@@ -268,7 +259,7 @@
         <button
           id="btn-menu-{message.id}"
           onclick={() => (showMenu = !showMenu)}
-          class="absolute top-1 right-1 p-0.5 rounded text-[#8696a0] hover:text-[#111b21] dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 opacity-0 group-hover/bubble:opacity-100 transition-opacity"
+          class="absolute top-1 right-1 p-0.5 rounded text-[#8696a0] hover:text-[#111b21] dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20"
           title="Menu Pesan"
           aria-label="Menu Pesan"
         >

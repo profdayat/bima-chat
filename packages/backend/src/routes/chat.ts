@@ -291,8 +291,8 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       publishToChannel(channelId, messagePayload);
     }
 
-    // Invalidate Redis caches for history and DMs
-    await delCacheKeys(`cache:history:${resolvedId}:latest`, `cache:history:${channelId}:latest`);
+    // Invalidate Redis caches for history, DMs, and public channels
+    await delCacheKeys(`cache:history:${resolvedId}:latest`, `cache:history:${channelId}:latest`, 'cache:channels:public');
     await invalidateCachePattern('cache:dms:*');
 
     return { status: 'sent', messageId: savedMessage.id, message: messagePayload };
@@ -706,7 +706,7 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
     return result;
   })
 
-  // List public channels (Cached in Redis)
+  // List public channels with last message preview (Cached in Redis)
   .get('/channels', async () => {
     const cacheKey = 'cache:channels:public';
     const cached = await getCacheJson<any[]>(cacheKey);
@@ -727,8 +727,38 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       allChannels = await db.insert(schema.channels).values(defaultChannels).returning();
     }
     
-    await setCacheJson(cacheKey, allChannels, 600); // 10 mins cache
-    return allChannels;
+    const channelsWithLastMsg = await Promise.all(allChannels.map(async (ch) => {
+      const latestMsg = await db.query.messages.findFirst({
+        where: eq(schema.messages.channelId, ch.id),
+        orderBy: [desc(schema.messages.createdAt)]
+      });
+
+      let parsedAttachments: any = null;
+      if (latestMsg?.attachments) {
+        try {
+          parsedAttachments = JSON.parse(latestMsg.attachments);
+        } catch {}
+      }
+
+      return {
+        ...ch,
+        lastMessage: latestMsg ? {
+          text: latestMsg.content,
+          senderName: latestMsg.senderName || 'Staff RSUD',
+          attachments: parsedAttachments,
+          createdAt: latestMsg.createdAt
+        } : null
+      };
+    }));
+
+    channelsWithLastMsg.sort((a, b) => {
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+      return timeB - timeA;
+    });
+
+    await setCacheJson(cacheKey, channelsWithLastMsg, 60); // 1 min cache
+    return channelsWithLastMsg;
   })
   
   // Create channel
