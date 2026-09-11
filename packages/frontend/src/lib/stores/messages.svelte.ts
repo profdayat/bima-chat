@@ -7,6 +7,7 @@ import { channelsStore } from './channels.svelte';
 
 export function createMessagesStore() {
   let messages = $state<Record<string, ChatMessage[]>>({});
+  let pinnedMessagesMap = $state<Record<string, ChatMessage[]>>({});
   let replyingToMessage = $state<ChatMessage | null>(null);
   let isSoundEnabled = $state(true);
 
@@ -47,6 +48,98 @@ export function createMessagesStore() {
 
     merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     return merged;
+  }
+
+  function getPinnedMessages(activeChannelId: string | null): ChatMessage[] {
+    if (!activeChannelId) return [];
+    const canonId = channelsStore.getCanonicalId(activeChannelId);
+    const allKeys = new Set([activeChannelId, canonId].filter(Boolean));
+    for (const key of allKeys) {
+      if (pinnedMessagesMap[key] && pinnedMessagesMap[key].length > 0) {
+        return pinnedMessagesMap[key];
+      }
+    }
+    return [];
+  }
+
+  async function loadPinnedMessages(channelId: string): Promise<ChatMessage[]> {
+    if (!channelId) return [];
+    const canonId = channelsStore.getCanonicalId(channelId);
+    try {
+      const base = getApiBase();
+      const headers = getAuthHeaders(authStore.authToken);
+      const res = await fetch(`${base}/api/chat/pinned/${encodeURIComponent(channelId)}`, { headers });
+      if (res.ok) {
+        const rawList = await res.json();
+        const adapted: ChatMessage[] = (Array.isArray(rawList) ? rawList : []).map((m: any) => ({
+          id: m.id,
+          channelId: m.channelId || channelId,
+          text: m.content,
+          status: m.status || 'sent',
+          replyToId: m.replyToId,
+          attachments: m.attachments,
+          reactions: m.reactions || [],
+          isPinned: true,
+          sender: m.sender || { id: m.senderId || 'anon', username: m.senderName || 'Staff RSUD' },
+          timestamp: m.createdAt,
+          type: m.type
+        }));
+
+        pinnedMessagesMap[channelId] = adapted;
+        if (canonId) pinnedMessagesMap[canonId] = adapted;
+        return adapted;
+      }
+    } catch (e) {
+      console.error('Failed to load pinned messages', e);
+    }
+    return pinnedMessagesMap[channelId] || (canonId ? pinnedMessagesMap[canonId] : []) || [];
+  }
+
+  async function loadMessageContext(channelId: string, messageId: string): Promise<{ messages: ChatMessage[]; targetIndex: number }> {
+    if (!channelId || !messageId) return { messages: [], targetIndex: -1 };
+    const canonId = channelsStore.getCanonicalId(channelId);
+    try {
+      const base = getApiBase();
+      const headers = getAuthHeaders(authStore.authToken);
+      const res = await fetch(`${base}/api/chat/history/${encodeURIComponent(channelId)}/context/${encodeURIComponent(messageId)}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const rawList = Array.isArray(data?.messages) ? data.messages : [];
+        const adapted: ChatMessage[] = rawList.map((m: any) => ({
+          id: m.id,
+          channelId: m.channelId || channelId,
+          text: m.content,
+          status: m.status || 'sent',
+          replyToId: m.replyToId,
+          attachments: m.attachments,
+          reactions: m.reactions || [],
+          isPinned: m.isPinned || false,
+          sender: m.sender || { id: m.senderId || 'anon', username: m.senderName || 'Staff RSUD' },
+          timestamp: m.createdAt,
+          type: m.type
+        }));
+
+        const current = messages[channelId] || (canonId ? messages[canonId] : []) || [];
+        const existingIds = new Set(current.map((m) => m.id));
+        const toAdd = adapted.filter((m) => !existingIds.has(m.id));
+
+        if (toAdd.length > 0) {
+          const merged = [...current, ...toAdd].sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          messages[channelId] = merged;
+          if (canonId) messages[canonId] = merged;
+          if (browser) {
+            saveMessagesToLocal(toAdd);
+          }
+        }
+
+        return { messages: adapted, targetIndex: data.targetIndex ?? -1 };
+      }
+    } catch (e) {
+      console.error('Failed to load message context', e);
+    }
+    return { messages: [], targetIndex: -1 };
   }
 
   async function sendChatMessage(
@@ -238,6 +331,12 @@ export function createMessagesStore() {
     try {
       const base = getApiBase();
       const headers = getAuthHeaders(authStore.authToken);
+      const canonId = channelsStore.getCanonicalId(channelId);
+      const allKeys = Array.from(new Set([channelId, canonId].filter(Boolean) as string[]));
+
+      // Optimistic update
+      handlePinUpdate({ messageId, isPinned }, allKeys);
+
       await fetch(`${base}/api/chat/pin/${channelId}`, {
         method: 'POST',
         headers,
@@ -345,10 +444,27 @@ export function createMessagesStore() {
   function handlePinUpdate(data: { messageId: string; isPinned: boolean }, channelKeys: string[]): void {
     for (const key of channelKeys) {
       const list = messages[key] || [];
-      const msg = list.find(m => m.id === data.messageId);
+      const msg = list.find((m) => m.id === data.messageId);
       if (msg) {
         msg.isPinned = data.isPinned;
         messages[key] = [...list];
+      }
+
+      // Update pinnedMessagesMap
+      const pList = pinnedMessagesMap[key] || [];
+      if (data.isPinned) {
+        if (!pList.some((m) => m.id === data.messageId)) {
+          if (msg) {
+            pinnedMessagesMap[key] = [...pList, { ...msg, isPinned: true }].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          } else {
+            // If message was not currently loaded in memory, fetch latest pinned list from server
+            loadPinnedMessages(key);
+          }
+        }
+      } else {
+        pinnedMessagesMap[key] = pList.filter((m) => m.id !== data.messageId);
       }
     }
   }
@@ -356,7 +472,10 @@ export function createMessagesStore() {
   function handleDeleteUpdate(data: { messageId: string }, channelKeys: string[]): void {
     for (const key of channelKeys) {
       const list = messages[key] || [];
-      messages[key] = list.filter(m => m.id !== data.messageId);
+      messages[key] = list.filter((m) => m.id !== data.messageId);
+      if (pinnedMessagesMap[key]) {
+        pinnedMessagesMap[key] = pinnedMessagesMap[key].filter((m) => m.id !== data.messageId);
+      }
     }
     if (browser) {
       deleteMessageFromLocal(data.messageId);
@@ -378,6 +497,9 @@ export function createMessagesStore() {
     },
     toggleSound,
     getChannelMessages,
+    getPinnedMessages,
+    loadPinnedMessages,
+    loadMessageContext,
     sendChatMessage,
     setMessages,
     prependMessages,

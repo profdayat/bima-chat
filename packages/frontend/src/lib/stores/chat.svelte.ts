@@ -87,6 +87,15 @@ export function createChatStoreFacade() {
     togglePinMessage(messageId: string, isPinned: boolean): Promise<void> {
       return messagesStore.togglePinMessage(connectionStore.activeChannelId, messageId, isPinned);
     },
+    get pinnedMessages(): ChatMessage[] {
+      return messagesStore.getPinnedMessages(connectionStore.activeChannelId);
+    },
+    loadPinnedMessages(channelId: string): Promise<ChatMessage[]> {
+      return messagesStore.loadPinnedMessages(channelId);
+    },
+    loadMessageContext(channelId: string, messageId: string): Promise<{ messages: ChatMessage[]; targetIndex: number }> {
+      return messagesStore.loadMessageContext(channelId, messageId);
+    },
     deleteMessage(messageId: string): Promise<void> {
       return messagesStore.deleteMessage(connectionStore.activeChannelId, messageId);
     },

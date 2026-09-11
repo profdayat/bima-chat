@@ -40,40 +40,83 @@
     onScrollToBottom,
     onJumpToMessage
   }: Props = $props();
+
+  let activePinIndex = $state(0);
+  let safePinIndex = $derived(
+    pinnedMessages.length > 0 ? ((activePinIndex % pinnedMessages.length) + pinnedMessages.length) % pinnedMessages.length : 0
+  );
+  let currentPinned = $derived(pinnedMessages[safePinIndex]);
 </script>
 
 <!-- Pinned Message Docked Banner under Header -->
-{#if pinnedMessages.length > 0}
-  {@const latestPinned = pinnedMessages[pinnedMessages.length - 1]}
-  <div class="absolute top-[60px] inset-x-0 bg-[#f0f2f5]/95 dark:bg-[#182229]/95 backdrop-blur-md border-b border-[#d1d7db] dark:border-[#222d34] px-4 py-2 text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-md z-20 animate-fadeIn">
+{#if pinnedMessages.length > 0 && currentPinned}
+  <div class="absolute top-[60px] inset-x-0 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#e9edef] dark:border-[#222d34] px-3.5 py-2 text-xs flex items-center justify-between text-[#111b21] dark:text-[#e9edef] shrink-0 select-none shadow-xs z-20 animate-fadeIn">
     <button
       type="button"
-      onclick={() => onJumpToMessage(latestPinned.id)}
-      class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition cursor-pointer"
-      title="Klik untuk loncat ke pesan yang disematkan"
+      onclick={() => {
+        onJumpToMessage(currentPinned.id);
+        if (pinnedMessages.length > 1) {
+          activePinIndex = (safePinIndex + 1) % pinnedMessages.length;
+        }
+      }}
+      class="flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-85 transition cursor-pointer group py-0.5"
+      title={pinnedMessages.length > 1 ? "Klik untuk loncat ke pesan (klik lagi untuk pin berikutnya)" : "Klik untuk loncat ke pesan yang disematkan"}
     >
-      <span class="text-amber-500 font-bold text-sm shrink-0">📌</span>
-      <div class="min-w-0 truncate">
-        <span class="font-bold text-[#008069] dark:text-[#00a884] mr-1">
-          {latestPinned.sender?.displayName || latestPinned.sender?.username || 'Pesan Disematkan'}:
-        </span>
-        <span class="text-[#4b5563] dark:text-[#9ca3af] truncate">
-          "{latestPinned.text}"
-        </span>
+      <!-- Left indicator bar for pinned messages -->
+      <div class="w-1 h-7 rounded-full bg-[#00a884] shrink-0"></div>
+      <span class="text-[#008069] dark:text-[#00a884] font-bold text-sm shrink-0">📌</span>
+      <div class="min-w-0 flex-1 truncate">
+        <div class="flex items-center gap-1.5 leading-tight">
+          <span class="font-bold text-[#008069] dark:text-[#00a884] truncate">
+            {currentPinned.sender?.displayName || currentPinned.sender?.username || 'Pesan Disematkan'}
+          </span>
+          {#if pinnedMessages.length > 1}
+            <span class="text-[10px] text-[#667781] dark:text-[#8696a0] font-normal">
+              ({safePinIndex + 1}/{pinnedMessages.length})
+            </span>
+          {/if}
+        </div>
+        <p class="text-[#667781] dark:text-[#8696a0] truncate mt-0.5">
+          {currentPinned.text || (currentPinned.attachments && currentPinned.attachments.length > 0 ? '[Lampiran berkas]' : 'Pesan')}
+        </p>
       </div>
     </button>
 
-    <div class="flex items-center gap-2 shrink-0 ml-2">
+    <div class="flex items-center gap-1.5 shrink-0 ml-3">
       {#if pinnedMessages.length > 1}
-        <span class="text-[10px] bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-full font-bold text-[#54656f] dark:text-[#8696a0]">
-          {pinnedMessages.length} Pinned
-        </span>
+        <div class="flex items-center gap-0.5 mr-1">
+          <button
+            type="button"
+            onclick={() => {
+              activePinIndex = (safePinIndex - 1 + pinnedMessages.length) % pinnedMessages.length;
+              onJumpToMessage(pinnedMessages[activePinIndex].id);
+            }}
+            class="w-7 h-7 flex items-center justify-center text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+            title="Pesan sematan sebelumnya"
+            aria-label="Pesan sematan sebelumnya"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onclick={() => {
+              activePinIndex = (safePinIndex + 1) % pinnedMessages.length;
+              onJumpToMessage(pinnedMessages[activePinIndex].id);
+            }}
+            class="w-7 h-7 flex items-center justify-center text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+            title="Pesan sematan berikutnya"
+            aria-label="Pesan sematan berikutnya"
+          >
+            ›
+          </button>
+        </div>
       {/if}
+
       <button
         type="button"
-        onclick={() => chatStore.togglePinMessage(latestPinned.id, false)}
-        class="p-1 text-[#8696a0] hover:text-rose-500 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-        title="Lepas sematan (Unpin)"
+        onclick={() => chatStore.togglePinMessage(currentPinned.id, false)}
+        class="min-w-[32px] min-h-[32px] flex items-center justify-center text-[#8696a0] hover:text-rose-500 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+        title="Lepas sematan"
         aria-label="Lepas sematan"
       >
         ✕

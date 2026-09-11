@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { db } from '../db';
 import * as schema from '../db/schema';
-import { eq, desc, inArray, and, lt, ne, or, like } from 'drizzle-orm';
+import { eq, desc, asc, inArray, and, lt, gt, ne, or, like } from 'drizzle-orm';
 import { channels as activeChannels, publishToChannel, publishToAll } from '../services/channel-manager';
 import { authMiddleware } from '../middleware/auth';
 import { getCacheJson, setCacheJson, delCacheKeys, invalidateCachePattern } from '../services/cache';
@@ -546,8 +546,13 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       isPinned: body.isPinned
     });
 
-    // Invalidate history cache in Redis
-    await delCacheKeys(`cache:history:${resolvedId}:latest`, `cache:history:${channelId}:latest`);
+    // Invalidate history & pinned cache in Redis
+    await delCacheKeys(
+      `cache:history:${resolvedId}:latest`,
+      `cache:history:${channelId}:latest`,
+      `cache:pinned:${resolvedId}`,
+      `cache:pinned:${channelId}`
+    );
 
     return { success: true, isPinned: body.isPinned };
   }, {
@@ -576,8 +581,13 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
       messageId: messageId
     });
 
-    // Invalidate history & DMs cache in Redis
-    await delCacheKeys(`cache:history:${resolvedId}:latest`, `cache:history:${channelId}:latest`);
+    // Invalidate history, pinned & DMs cache in Redis
+    await delCacheKeys(
+      `cache:history:${resolvedId}:latest`,
+      `cache:history:${channelId}:latest`,
+      `cache:pinned:${resolvedId}`,
+      `cache:pinned:${channelId}`
+    );
     await invalidateCachePattern('cache:dms:*');
 
     return { success: true, messageId };
@@ -1039,4 +1049,152 @@ export const chatRouter = new Elysia({ prefix: '/chat', detail: { tags: ['Chat']
     }
 
     return resultObj;
+  })
+
+  // Get all pinned messages in a channel (independent of 30-message timeline lazy load)
+  .get('/pinned/:channelId', async ({ params: { channelId } }) => {
+    const channel = await resolveChannel(channelId);
+    const resolvedId = channel.id;
+    const cacheKey = `cache:pinned:${resolvedId}`;
+
+    const cached = await getCacheJson<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const pinnedList = await db.query.messages.findMany({
+      where: and(
+        eq(schema.messages.channelId, resolvedId),
+        eq(schema.messages.isPinned, 'true')
+      ),
+      orderBy: [asc(schema.messages.createdAt)],
+      with: {
+        sender: {
+          columns: {
+            id: true,
+            username: true
+          }
+        }
+      }
+    });
+
+    const formatted = pinnedList.map((m) => {
+      let parsedAttachments = null;
+      let parsedReactions = [];
+      try {
+        if (m.attachments) parsedAttachments = JSON.parse(m.attachments);
+      } catch {}
+      try {
+        if (m.reactions) parsedReactions = JSON.parse(m.reactions);
+      } catch {}
+
+      return {
+        id: m.id,
+        channelId: m.channelId,
+        content: m.content,
+        type: m.type,
+        status: m.status,
+        replyToId: m.replyToId,
+        attachments: parsedAttachments,
+        reactions: parsedReactions,
+        isPinned: true,
+        createdAt: m.createdAt,
+        sender: {
+          id: m.senderId || 'guest',
+          username: m.sender?.username || m.senderName || 'Staff RSUD'
+        }
+      };
+    });
+
+    await setCacheJson(cacheKey, formatted, 300); // 5 mins cache
+    return formatted;
+  })
+
+  // Get context window around a specific message (for Jump to Message)
+  .get('/history/:channelId/context/:messageId', async ({ params: { channelId, messageId }, query }) => {
+    const channel = await resolveChannel(channelId);
+    const resolvedId = channel.id;
+    const limit = query.limit ? Math.min(Math.max(parseInt(query.limit as string) || 30, 5), 50) : 30;
+    const half = Math.floor(limit / 2);
+
+    // 1. Find the target message
+    const targetMsg = await db.query.messages.findFirst({
+      where: and(
+        eq(schema.messages.id, messageId),
+        eq(schema.messages.channelId, resolvedId)
+      ),
+      with: {
+        sender: {
+          columns: { id: true, username: true }
+        }
+      }
+    });
+
+    if (!targetMsg) {
+      return { messages: [], targetIndex: -1 };
+    }
+
+    // 2. Fetch older messages before target
+    const olderMessages = await db.query.messages.findMany({
+      where: and(
+        eq(schema.messages.channelId, resolvedId),
+        lt(schema.messages.createdAt, targetMsg.createdAt)
+      ),
+      orderBy: [desc(schema.messages.createdAt)],
+      limit: half,
+      with: {
+        sender: {
+          columns: { id: true, username: true }
+        }
+      }
+    });
+
+    // 3. Fetch newer messages after target
+    const newerMessages = await db.query.messages.findMany({
+      where: and(
+        eq(schema.messages.channelId, resolvedId),
+        gt(schema.messages.createdAt, targetMsg.createdAt)
+      ),
+      orderBy: [asc(schema.messages.createdAt)],
+      limit: half,
+      with: {
+        sender: {
+          columns: { id: true, username: true }
+        }
+      }
+    });
+
+    // Combine: older (reversed to chronological) + targetMsg + newer
+    const combined = [...olderMessages.reverse(), targetMsg, ...newerMessages];
+
+    const formatted = combined.map((m) => {
+      let parsedAttachments = null;
+      let parsedReactions = [];
+      try {
+        if (m.attachments) parsedAttachments = JSON.parse(m.attachments);
+      } catch {}
+      try {
+        if (m.reactions) parsedReactions = JSON.parse(m.reactions);
+      } catch {}
+
+      return {
+        id: m.id,
+        channelId: m.channelId,
+        content: m.content,
+        type: m.type,
+        status: m.status,
+        replyToId: m.replyToId,
+        attachments: parsedAttachments,
+        reactions: parsedReactions,
+        isPinned: m.isPinned === 'true',
+        createdAt: m.createdAt,
+        sender: {
+          id: m.senderId || 'guest',
+          username: m.sender?.username || m.senderName || 'Staff RSUD'
+        }
+      };
+    });
+
+    const targetIndex = formatted.findIndex((m) => m.id === messageId);
+    return { messages: formatted, targetIndex };
   });

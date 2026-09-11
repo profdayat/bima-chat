@@ -102,10 +102,8 @@
   let isSearchOpen = $state(false);
   let inChatSearchQuery = $state('');
 
-  // Pinned Messages derived list
-  let pinnedMessages = $derived(
-    chatStore.messages.filter(m => m.isPinned)
-  );
+  // Pinned Messages from dedicated store (instant 0ms, independent of 30-message history lazy load)
+  let pinnedMessages = $derived(chatStore.pinnedMessages);
 
   onMount(() => {
     chatStore.loadUsers();
@@ -126,6 +124,7 @@
         isScrolledUp = false;
         newMessagesWhileScrolledUp = 0;
         chatStore.fetchChannelInfo(id);
+        chatStore.loadPinnedMessages(id);
         loadHistory(id);
         chatStore.connect(id);
         chatStore.replyingToMessage = null;
@@ -350,18 +349,37 @@
     }));
   });
 
-  function jumpToMessage(id: string): void {
-    const el = document.getElementById(`msg-${id}`);
-    if (el && messagesContainer) {
-      const elOffsetTop = el.offsetTop;
-      messagesContainer.scrollTo({
-        top: Math.max(0, elOffsetTop - 100),
-        behavior: 'smooth'
-      });
-      el.classList.add('ring-2', 'ring-[#00a884]', 'ring-offset-4', 'ring-offset-transparent');
-      setTimeout(() => {
-        el.classList.remove('ring-2', 'ring-[#00a884]', 'ring-offset-4', 'ring-offset-transparent');
-      }, 2500);
+  let isJumpingToMessage = $state(false);
+
+  async function jumpToMessage(id: string): Promise<void> {
+    if (!id || isJumpingToMessage) return;
+    isJumpingToMessage = true;
+
+    try {
+      let el = document.getElementById(`msg-${id}`);
+
+      // If message is not rendered in current DOM (e.g. beyond 30 loaded messages)
+      if (!el && channelId) {
+        const result = await chatStore.loadMessageContext(channelId, id);
+        if (result && result.messages.length > 0) {
+          await tick();
+          el = document.getElementById(`msg-${id}`);
+        }
+      }
+
+      if (el && messagesContainer) {
+        const elOffsetTop = el.offsetTop;
+        messagesContainer.scrollTo({
+          top: Math.max(0, elOffsetTop - 100),
+          behavior: 'smooth'
+        });
+        el.classList.add('ring-2', 'ring-[#00a884]', 'ring-offset-4', 'ring-offset-transparent');
+        setTimeout(() => {
+          el?.classList.remove('ring-2', 'ring-[#00a884]', 'ring-offset-4', 'ring-offset-transparent');
+        }, 2500);
+      }
+    } finally {
+      isJumpingToMessage = false;
     }
   }
 
